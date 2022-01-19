@@ -1,0 +1,6 @@
+github.com/antihax/optional v1.0.0 h1:xK2lYat7ZLaVVcIuj82J8kIro4V6kDe0AUDFboUCwcg=
+github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
+github.com/gateio/gateapi-go/v5 v5.20.2 h1:piGWhnTsSKQuxKG5bYze1U4JmcEP9G1eHWTxxazrIZ8=
+github.com/gateio/gateapi-go/v5 v5.20.2/go.mod h1:+WrqJlhRub7iGYOwzfxtLokiYec4IMObJ1QPObfoDuE=
+github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG21F6nPQBE5gKV8=
+github.com/shopspring/decimal v1.3.1/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
