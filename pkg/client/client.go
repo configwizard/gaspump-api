@@ -8,19 +8,19 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
+type FS_NETWORK string
 const (
-	TESTNET string = "grpcs://st01.testnet.fs.neo.org:8082"
-	MAINNET = "grpcs://st01.testnet.fs.neo.org:8082"
-	DEFAULT_EXPIRATION = 140000
-
+	TESTNET FS_NETWORK = "grpcs://st01.testnet.fs.neo.org:8082"
+	MAINNET FS_NETWORK = "grpcs://st01.testnet.fs.neo.org:8082"
 )
+const DEFAULT_EXPIRATION = 140000
 
-func NewClient(privateKey *ecdsa.PrivateKey, network string) (*client.Client, error) {
+func NewClient(privateKey *ecdsa.PrivateKey, network FS_NETWORK) (*client.Client, error) {
 	cli, err := client.New(
 		// provide private key associated with request owner
 		client.WithDefaultPrivateKey(privateKey),
 		// find endpoints in https://testcdn.fs.neo.org/doc/integrations/endpoints/
-		client.WithURIAddress(network, nil),
+		client.WithURIAddress(string(network), nil),
 		// check client errors in go compatible way
 		client.WithNeoFSErrorParsing(),
 	)
