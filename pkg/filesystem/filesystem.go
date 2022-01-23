@@ -8,6 +8,8 @@ import (
 	"github.com/amlwwalker/gaspump-api/pkg/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
 type Element struct {
@@ -17,28 +19,46 @@ type Element struct {
 	Size uint64 `json:"size"`
 	Attributes map[string]string `json:"attributes""`
 	Errors []error `json:"errors",omitempty`
-	Children []*Element `json:"children",omitempty`
+	Children []Element `json:"children",omitempty`
 }
 
-func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, containerID *cid.ID) Element {
+func PopulateContainerList(ctx context.Context, cli *client.Client, containerID *cid.ID) Element {
 	cont := Element{
 		Type: "container",
 		ID: containerID.String(),
 		Attributes: make(map[string]string),
 	}
 	c, err := container.Get(ctx, cli, containerID)
+	c.PlacementPolicy()
+	if err != nil {
+		cont.Errors = append(cont.Errors, err)
+		return cont
+	}
 	for _, a := range c.Attributes() {
 		cont.Attributes[a.Key()] = a.Value()
 	}
 	if name, ok := cont.Attributes["name"]; ok {
 		cont.Name = name
 	}
+	return cont
+}
+
+func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, containerID *cid.ID) Element {
+
+	cont := PopulateContainerList(ctx, cli, containerID)
 	//list the contents:
 	s, err := client2.CreateSession(client2.DEFAULT_EXPIRATION, ctx, cli, key)
 	objs, err := object.ListObjects(ctx, cli, containerID, s)
 	if err != nil {
 		cont.Errors = append(cont.Errors, err)
 	}
+	cont.Size, cont.Children = GenerateObjectStruct(ctx, cli, s, objs, containerID)
+	return cont
+}
+
+func GenerateObjectStruct(ctx context.Context, cli *client.Client, s *session.Token, objs []*oid.ID, containerID *cid.ID) (uint64, []Element){
+	var newObjs []Element
+	size := uint64(0)
 	for _, o := range objs {
 		obj := Element{
 			Type: "object",
@@ -48,19 +68,19 @@ func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, ke
 		objAddress := object.GetObjectAddress(o, containerID)
 		head, err := object.GetObjectMetaData(ctx, cli, objAddress, s)
 		if err != nil {
-			obj.Errors = append(cont.Errors, err)
+			obj.Errors = append(obj.Errors, err)
 		}
 		for _, a := range head.Object().Attributes() {
 			obj.Attributes[a.Key()] = a.Value()
 		}
-		if name, ok := obj.Attributes["name"]; ok {
-			obj.Name = name
-		}
+		//if name, ok := obj.Attributes["name"]; ok {
+		//	obj.Name = name
+		//}
 		obj.Size = head.Object().PayloadSize()
-		cont.Size += obj.Size
-		cont.Children = append(cont.Children, &obj)
+		size += obj.Size
+		newObjs = append(newObjs, obj)
 	}
-	return cont
+	return size, newObjs
 }
 func GenerateFileSystem(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey) ([]Element, error){
 	var fileSystem []Element
