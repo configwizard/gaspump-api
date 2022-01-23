@@ -16,7 +16,8 @@ func GetObjectAddress(objectID *object.ID, containerID *cid.ID) *object.Address 
 	objAddress.SetContainerID(containerID)
 	return objAddress
 }
-// UploadObject uploads from an io.Reader
+// UploadObject uploads from an io.Reader.
+// Todo: pipe for progress https://stackoverflow.com/a/56505353/1414721
 func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, ownerID *owner.ID, attr []*object.Attribute, sessionToken *session.Token, reader *io.Reader) (*object.ID, error) {
 	var obj = object.NewRaw()
 	obj.SetContainerID(containerID)
@@ -43,7 +44,9 @@ func GetObjectMetaData(ctx context.Context, cli *client.Client, objectAddress *o
 	}
 	return headObject, nil
 }
-
+// GetObject does pecisely that. Returns bytes
+// Todo: https://stackoverflow.com/a/56505353/1414721
+// for progress bar
 func GetObject(ctx context.Context, cli *client.Client, objectAddress *object.Address, sessionToken *session.Token, writer *io.Writer) ([]byte, error){
 	var getParams = new(client.GetObjectParams)
 	getParams.WithAddress(objectAddress)
