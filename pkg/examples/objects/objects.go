@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	object2 "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"io"
 	"io/ioutil"
 	"log"
@@ -75,11 +76,24 @@ func main() {
 	containerID := "2qo7LZDDHJBN833dVkyDy5gwP65qBMV5uYiFMfVLjMMA"
 	filepath := "./upload.gif"
 	var attributes []*object2.Attribute
-	response, err := uploadObject(ctx, cli, key, containerID, filepath, attributes)
-	fmt.Printf("Object %s has been persisted in container %s\n", response, containerID)
+
+	sessionToken, err := client2.CreateSession(client2.DEFAULT_EXPIRATION, ctx, cli, key)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cntId := new(cid.ID)
+	cntId.Parse(containerID)
+	objectID, err := uploadObject(ctx, cli, key, cntId, filepath, attributes, sessionToken)
+	fmt.Printf("Object %s has been persisted in container %s\nview it at https://http.testnet.fs.neo.org/%s/%s", objectID, containerID, containerID, objectID)
+	objectIDs, err := ListObjects(ctx, cli, cntId, sessionToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("list objects %+v\n", objectIDs)
 }
 
-func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, containerID, filepath string, attributes []*object2.Attribute) (string, error) {
+func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, containerID *cid.ID, filepath string, attributes []*object2.Attribute, sessionToken *session.Token) (string, error) {
 	f, err := os.Open(filepath)
 	defer f.Close()
 	if err != nil {
@@ -97,22 +111,30 @@ func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey
 
 	fileNameAttr := new(object2.Attribute)
 	fileNameAttr.SetKey(object2.AttributeFileName)
-	timeStampAttr.SetValue(path.Base(filepath))
+	fileNameAttr.SetValue(path.Base(filepath))
 	attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
 
-	sessionToken, err := client2.CreateSession(client2.DEFAULT_EXPIRATION, ctx, cli, key)
-	if err != nil {
-		return "", err
-	}
 	ownerID, err := wallet.OwnerIDFromPrivateKey(key)
 	if err != nil {
 		return "", err
 	}
-	cntId := new(cid.ID)
-	cntId.Parse(containerID)
-	id, err := object.UploadObject(ctx, cli, cntId, ownerID, attributes, sessionToken, &ioReader)
+
+	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attributes, sessionToken, &ioReader)
 	if err != nil {
 		fmt.Println("error attempting to upload", err)
 	}
 	return id.String(), err
+}
+
+func ListObjects(ctx context.Context, cli *client.Client, containerID *cid.ID, sessionToken *session.Token) ([]*object2.ID, error) {
+	var searchParams = new (client.SearchObjectParams)
+	var filters = object2.SearchFilters{}
+	filters.AddRootFilter()
+	searchParams.WithContainerID(containerID)
+	searchParams.WithSearchFilters(filters)
+	res, err := cli.SearchObjects(ctx, searchParams, client.WithSession(sessionToken))
+	if err != nil {
+		return []*object2.ID{}, err
+	}
+	return res.IDList(), nil
 }
