@@ -53,7 +53,28 @@ func GetCredentialsFromPath(path, address, password string) (*ecdsa.PrivateKey, 
 
 	return getKeyFromWallet(w, address, password)
 }
+func UnlockWallet(path, address, password string) (*wallet.Account, error) {
+	w, err := wallet.NewWalletFromFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var addr util.Uint160
+	if len(address) == 0 {
+		addr = w.GetChangeAddress()
+	} else {
+		addr, err = flags.ParseAddress(address)
+		if err != nil {
+			return nil, fmt.Errorf("invalid address")
+		}
+	}
 
+	acc := w.GetAccount(addr)
+	err = acc.Decrypt(password, w.Scrypt)
+	if err != nil {
+		return nil, err
+	}
+	return acc, nil
+}
 type Nep17Tokens struct {
 	Asset util.Uint160 `json:"asset"`
 	Amount uint64 `json:"amount""`
@@ -107,23 +128,24 @@ func GetNep17Balances(walletAddress string, network RPC_NETWORK) (map[string]Nep
 }
 //TransferToken transfer Nep17 token to another wallet, for instance use address here https://testcdn.fs.neo.org/doc/integrations/endpoints/
 //simple example https://gist.github.com/alexvanin/4f22937b99990243a60b7abf68d7458c
-func TransferToken(a *wallet.Account, amount int64, walletTo string, token util.Uint160, network RPC_NETWORK) (util.Uint256, error) {
+func TransferToken(a *wallet.Account, amount int64, walletTo string, token util.Uint160, network RPC_NETWORK) (string, error) {
 	ctx := context.Background()
 	// use endpoint addresses of public RPC nodes, e.g. from https://dora.coz.io/monitor
 	cli, err := client.New(ctx, string(network), client.Options{})
 	if err != nil {
-		return util.Uint256{}, err
+		return "", err
 	}
 	err = cli.Init()
 	if err != nil {
-		return util.Uint256{}, err
+		return "", err
 	}
 	recipient, err := StringToUint160(walletTo)
 	if err != nil {
-		return util.Uint256{}, err
+		return "", err
 	}
 	txHash, err := cli.TransferNEP17(a, recipient, token, amount, 0, nil, nil)
-	return txHash, err
+	le := txHash.StringLE()
+	return le, err
 }
 
 // getKeyFromWallet fetches private key from neo-go wallet structure

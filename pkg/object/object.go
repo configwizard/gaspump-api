@@ -71,9 +71,9 @@ func ListObjects(ctx context.Context, cli *client.Client, containerID *cid.ID, s
 	return res.IDList(), nil
 }
 
-func DeleteObject(ctx context.Context, cli *client.Client, objectID *object.Address, sessionToken *session.Token) (error) {
+func DeleteObject(ctx context.Context, cli *client.Client, objectAddress *object.Address, sessionToken *session.Token) (error) {
 	var deleteParams = new (client.DeleteObjectParams)
-	deleteParams.WithAddress(objectID)
+	deleteParams.WithAddress(objectAddress)
 	_, err := cli.DeleteObject(ctx, deleteParams, client.WithSession(sessionToken))
 	return err
 }
