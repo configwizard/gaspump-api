@@ -8,14 +8,14 @@ import (
 )
 
 func TestWalletGenerateNew(t *testing.T) {
-	w, err := wallet.GenerateNewWallet("/tmp/wallet.json")
+	w, err := wallet.GenerateNewWallet("/tmp/wallets.json")
 	assert.Nil(t, err, "error not nil")
 	assert.NotNil(t, w.Accounts[0], "no account")
 	assert.NotEqualf(t, "", w.Accounts[0].Address, "no address")
 }
 
 func TestWalletSecureGenerateNew(t *testing.T) {
-	path := "/tmp/wallet.json"
+	path := "/tmp/wallets.json"
 	password := "password"
 	w, err := wallet.GenerateNewSecureWallet(path, "", password)
 	fmt.Print(wallet.PrettyPrint(w))

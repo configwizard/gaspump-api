@@ -14,16 +14,16 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
-const usage = `NeoFS Balance requests
+const usage = `Example
 
-$ ./01-accounting -wallet [..] -address [..]
-
+$ ./balance -wallets ./sample_wallets/wallet.json
+password is password
 `
 
 var (
-	walletPath = flag.String("wallet", "", "path to JSON wallet file")
-	walletAddr = flag.String("address", "", "wallet address [optional]")
-	createWallet = flag.Bool("create", false, "create a wallet")
+	walletPath = flag.String("wallets", "", "path to JSON wallets file")
+	walletAddr = flag.String("address", "", "wallets address [optional]")
+	createWallet = flag.Bool("create", false, "create a wallets")
 )
 
 func main() {
@@ -38,11 +38,11 @@ func main() {
 	if *createWallet {
 		secureWallet, err := wallet.GenerateNewSecureWallet(*walletPath, "some account label", "password")
 		if err != nil {
-			log.Fatal("error generating wallet", err)
+			log.Fatal("error generating wallets", err)
 		}
 		file, _ := json.MarshalIndent(secureWallet, "", " ")
 		_ = ioutil.WriteFile(*walletPath, file, 0644)
-		log.Printf("created new wallet\r\n%+v\r\n", file)
+		log.Printf("created new wallets\r\n%+v\r\n", file)
 		os.Exit(0)
 	}
 

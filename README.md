@@ -2,7 +2,13 @@
 
 The api holds all the backend functionality to interface with NeoFS.
 
-If the repository is private, you will need to be a collaborator on this repository. After that you will need to generate a github access token in your personal developer settings.
+
+**You can `go get` this library with** `go get github.com/amlwwalker/gaspump-api`
+
+
+### If the repository is private
+
+you will need to be a collaborator on this repository. After that you will need to generate a github access token in your personal developer settings.
 
 Then run
 
@@ -19,3 +25,9 @@ git config --global url."git@github.com/amlwwalker:<YOUR ACCESS TOKEN>".insteadO
 replacing `<YOUR ACCESS TOKEN>` with your access token you retrieved earlier.
 
 Now when building a project that uses this api, like gaspump.react you should have no issues building 
+
+## Examples
+
+Run any of the examples, they don't rely on anything except the api and what is contained in each file.
+
+Using the documentation at [neo-doc](https://amlwwalker.github.io/neo-docs/introduction/) you should get on just fine.

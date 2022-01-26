@@ -22,6 +22,7 @@ type Element struct {
 	Children []Element `json:"children",omitempty`
 }
 
+// PopulateContainerList returns a container with its attributes as an Element (used by GenerateFileSystemFromContainer)
 func PopulateContainerList(ctx context.Context, cli *client.Client, containerID *cid.ID) Element {
 	cont := Element{
 		Type: "container",
@@ -43,6 +44,7 @@ func PopulateContainerList(ctx context.Context, cli *client.Client, containerID 
 	return cont
 }
 
+// GenerateFileSystemFromContainer wraps the output of GenerateObjectStruct in a container element
 func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, containerID *cid.ID) Element {
 
 	cont := PopulateContainerList(ctx, cli, containerID)
@@ -56,6 +58,7 @@ func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, ke
 	return cont
 }
 
+//GenerateObjectStruct returns an array of elements containing all the objects owned by the contianer ID
 func GenerateObjectStruct(ctx context.Context, cli *client.Client, s *session.Token, objs []*oid.ID, containerID *cid.ID) (uint64, []Element){
 	var newObjs []Element
 	size := uint64(0)
@@ -73,15 +76,14 @@ func GenerateObjectStruct(ctx context.Context, cli *client.Client, s *session.To
 		for _, a := range head.Object().Attributes() {
 			obj.Attributes[a.Key()] = a.Value()
 		}
-		//if name, ok := obj.Attributes["name"]; ok {
-		//	obj.Name = name
-		//}
 		obj.Size = head.Object().PayloadSize()
 		size += obj.Size
 		newObjs = append(newObjs, obj)
 	}
 	return size, newObjs
 }
+
+//GenerateFileSystem returns an array of every object in every container the wallet key owns
 func GenerateFileSystem(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey) ([]Element, error){
 	var fileSystem []Element
 	containerIds, err := container.List(ctx, cli, key)
