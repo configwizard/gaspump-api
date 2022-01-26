@@ -12,7 +12,7 @@ import (
 
 func List(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey) ([]*cid.ID, error) {
 	// ListContainers method requires Owner ID.
-	// OwnerID is a binary representation of wallet address.
+	// OwnerID is a binary representation of wallets address.
 	ownerID, err := wallet.OwnerIDFromPrivateKey(key)
 	if err != nil {
 		return nil, fmt.Errorf("can't retrieve owner ID: %w", err)

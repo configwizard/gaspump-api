@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/amlwwalker/gaspump-api/pkg/wallet"
+	"github.com/nspcc-dev/neofs-sdk-go/acl"
 
 	"encoding/json"
 	"flag"
@@ -17,16 +18,16 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
-const usage = `NeoFS Balance requests
+const usage = `Example
 
-$ ./01-accounting -wallet [..] -address [..]
-
+$ ./containers -wallets ./sample_wallets/wallet.json
+password is password
 `
 
 var (
-	walletPath = flag.String("wallet", "", "path to JSON wallet file")
-	walletAddr = flag.String("address", "", "wallet address [optional]")
-	createWallet = flag.Bool("create", false, "create a wallet")
+	walletPath = flag.String("wallets", "", "path to JSON wallets file")
+	walletAddr = flag.String("address", "", "wallets address [optional]")
+	createWallet = flag.Bool("create", false, "create a wallets")
 )
 
 func main() {
@@ -41,11 +42,11 @@ func main() {
 	if *createWallet {
 		secureWallet, err := wallet.GenerateNewSecureWallet(*walletPath, "some account label", "password")
 		if err != nil {
-			log.Fatal("error generating wallet", err)
+			log.Fatal("error generating wallets", err)
 		}
 		file, _ := json.MarshalIndent(secureWallet, "", " ")
 		_ = ioutil.WriteFile(*walletPath, file, 0644)
-		log.Printf("created new wallet\r\n%+v\r\n", file)
+		log.Printf("created new wallets\r\n%+v\r\n", file)
 		os.Exit(0)
 	}
 
@@ -67,7 +68,12 @@ func main() {
 		log.Fatal("can't create NeoFS client:", err)
 	}
 	var attributes []*container.Attribute
-	id, err := container2.Create(ctx, cli, key, attributes)
+	placementPolicy := `REP 2 IN X
+	CBF 2
+	SELECT 2 FROM * AS X
+	`
+	customACL := acl.EACLReadOnlyBasicRule
+	id, err := container2.Create(ctx, cli, key, placementPolicy, customACL, attributes)
 	if err != nil {
 		log.Fatal(err)
 	}

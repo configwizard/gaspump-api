@@ -46,7 +46,7 @@ func loadWalletFromString() (wallet.Wallet, error) {
 	return w, err
 }
 func TestOwnerID(t *testing.T) {
-	//generate a wallet
+	//generate a wallets
 	w, err := loadWalletFromString()
 	assert.Nil(t, err, "error not nil")
 	res, _ := wallet2.PrettyPrint(w)
