@@ -40,7 +40,7 @@ func PrettyPrint(data interface{}) (string, error) {
 }
 
 
-func gasToken(cli client.Client) (util.Uint160, error){
+func GasToken(cli client.Client) (util.Uint160, error){
 	gasToken, err := cli.GetNativeContractHash(nativenames.Gas)
 	return gasToken, err
 }

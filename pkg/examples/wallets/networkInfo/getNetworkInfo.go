@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	client2 "github.com/amlwwalker/gaspump-api/pkg/client"
+	//"github.com/amlwwalker/gaspump-api/pkg/examples/utils"
 	"github.com/amlwwalker/gaspump-api/pkg/wallet"
 	"io/ioutil"
 	"log"
@@ -15,7 +17,7 @@ import (
 
 const usage = `Example
 
-$ ./retrieveNeoFSBalance -wallets ./sample_wallets/wallet.json
+$ ./getNetworkInfo -wallets ./sample_wallets/wallet.json
 password is password
 `
 
@@ -25,6 +27,7 @@ var (
 	createWallet = flag.Bool("create", false, "create a wallets")
 )
 
+//epoch can be useful if you want to calculate expiry time for an object, for instance
 func main() {
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr, usage)
@@ -63,17 +66,12 @@ func main() {
 		log.Fatal("can't create NeoFS client:", err)
 	}
 
-	owner, err := wallet.OwnerIDFromPrivateKey(key)
+	info, err := client2.GetNetworkInfo(ctx, cli)
 	if err != nil {
-		log.Fatal("can't get owner from private key:", err)
+		log.Fatal("can't retrieve network info:", err)
 	}
-	result, err := cli.GetBalance(ctx, owner)
-	if err != nil {
-		log.Fatal("can't get NeoFS Balance:", err)
-	}
-
-	fmt.Println("value:", result.Amount().Value())
-	fmt.Println("precision:", result.Amount().Precision())
+	fmt.Printf("network info %+v/r/n", info)
+	msPerBlock := info.MsPerBlock()
+	epoch := info.CurrentEpoch()
+	fmt.Printf("current epoch %d - msPerBlock %d\n", epoch, msPerBlock)
 }
-
-
