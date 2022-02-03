@@ -10,6 +10,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
 type Element struct {
@@ -50,16 +51,16 @@ func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, ke
 	cont := PopulateContainerList(ctx, cli, containerID)
 	//list the contents:
 	s, err := client2.CreateSession(client2.DEFAULT_EXPIRATION, ctx, cli, key)
-	objs, err := object.ListObjects(ctx, cli, containerID, s)
+	objs, err := object.ListObjects(ctx, cli, containerID, nil, s)
 	if err != nil {
 		cont.Errors = append(cont.Errors, err)
 	}
-	cont.Size, cont.Children = GenerateObjectStruct(ctx, cli, s, objs, containerID)
+	cont.Size, cont.Children = GenerateObjectStruct(ctx, cli, nil, s, objs, containerID)
 	return cont
 }
 
 //GenerateObjectStruct returns an array of elements containing all the objects owned by the contianer ID
-func GenerateObjectStruct(ctx context.Context, cli *client.Client, s *session.Token, objs []*oid.ID, containerID *cid.ID) (uint64, []Element){
+func GenerateObjectStruct(ctx context.Context, cli *client.Client, b *token.BearerToken, s *session.Token, objs []*oid.ID, containerID *cid.ID) (uint64, []Element){
 	var newObjs []Element
 	size := uint64(0)
 	for _, o := range objs {
@@ -69,7 +70,7 @@ func GenerateObjectStruct(ctx context.Context, cli *client.Client, s *session.To
 			Attributes: make(map[string]string),
 		}
 		objAddress := object.GetObjectAddress(o, containerID)
-		head, err := object.GetObjectMetaData(ctx, cli, objAddress, s)
+		head, err := object.GetObjectMetaData(ctx, cli, objAddress, b, s)
 		if err != nil {
 			obj.Errors = append(obj.Errors, err)
 		}

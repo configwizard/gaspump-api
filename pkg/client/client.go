@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"github.com/amlwwalker/gaspump-api/pkg/wallet"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
@@ -41,4 +42,23 @@ func CreateSession(expiration uint64, ctx context.Context, cli *client.Client, k
 	st.SetID(sessionResponse.ID())
 	st.SetSessionKey(sessionResponse.SessionKey())
 	return st, nil
+}
+
+
+func GetNetworkInfo(ctx context.Context, cli *client.Client) (*netmap.NetworkInfo, error) {
+	info, err := cli.NetworkInfo(ctx)
+	if err != nil {
+		return &netmap.NetworkInfo{}, err
+	}
+	return info.Info(), nil
+}
+
+// CalculateEpochsForTime takes the number of seconds into the future you want the epoch for
+// and estimates it based on the current average time per epoch
+func CalculateEpochsForTime(currentEpoch uint64, durationInSeconds , msPerEpoch int64) uint64 {
+	//to convert a time into epochs
+	//first we need to know the time per epoch
+	//totalEstimatedTime := currentEpoch * timePerEpoch //(in ms)
+	durationInEpochs := durationInSeconds/(msPerEpoch/1000) //in seconds
+	return currentEpoch + uint64(durationInEpochs) // (estimate)
 }

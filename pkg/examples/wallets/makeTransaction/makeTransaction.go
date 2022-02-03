@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"math/big"
+	"time"
 
 	//"github.com/amlwwalker/gaspump-api/pkg/examples/utils"
 	"github.com/amlwwalker/gaspump-api/pkg/wallet"
 	"io/ioutil"
 	"log"
 	"os"
-
 )
 
 const usage = `Example
@@ -23,12 +24,17 @@ password is password
 `
 
 var (
-	walletPath = flag.String("wallets", "", "path to JSON wallets file")
+	walletPath = flag.String("wallets", "./pkg/examples/sample_wallets/wallet.json", "path to JSON wallets file")
 	walletAddr = flag.String("address", "", "wallets address [optional]")
 	createWallet = flag.Bool("create", false, "create a wallets")
 )
 
 func main() {
+	path, err := os.Getwd()
+	if err != nil {
+		log.Println(err)
+	}
+	fmt.Println(path)  // for example /home/user
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr, usage)
 		flag.PrintDefaults()
@@ -57,21 +63,53 @@ func main() {
 		log.Fatal(err)
 	}
 
-	w, err := wallet.UnlockWallet(*walletPath, "", "password")
+	acc, err := wallet.UnlockWallet(*walletPath, "", "password")
 	if err != nil {
 		log.Fatal("can't unlock wallet:", err)
 	}
-	gasToken, err := cli.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		log.Fatal(err)
-	}
+	//gasToken, err := cli.GetNativeContractHash(nativenames.Gas)
+	//if err != nil {
+	//	appl.Fatal(err)
+	//}
 	//send 1 GAS (precision 8) to NeoFS wallet
-	neoFSWallet := "NadZ8YfvkddivcFFkztZgfwxZyKf1acpRF"
-	token, err := wallet.TransferToken(w, 1_00_000_000, neoFSWallet, gasToken, wallet.RPC_TESTNET)
-	if err != nil {
-		log.Fatal("can't transfer token:", err)
+	////neoFSWallet := "NadZ8YfvkddivcFFkztZgfwxZyKf1acpRF"
+	//contractAddress, err := util.Uint160DecodeStringLE("0x185ec84c2694684f1dbd2852c27f004d969653d5")
+	//if err != nil {
+	//	return
+	//}
+	//contractAddress := util.Uint160(le)
+	account, err := wallet.StringToUint160(acc.Address)
+	param := smartcontract.Parameter{
+		Type:  smartcontract.Hash160Type,
+		Value: account,
 	}
-	log.Println("success: transaction ID ", token)
+	params := []smartcontract.Parameter{param}
+	operation := "balanceOf" //symbol
+	network := wallet.RPC_TESTNET
+	transactionID, transaction, err := wallet.CreateTransactionFromFunctionCall("0x0a81b80376a65003781f140d1b87b6531f706215", operation, network, acc, params)
+	if err != nil {
+		log.Fatal("transaction failed ", err)
+	}
+	log.Printf("success: transaction %+v\r\nSleeping...", transaction)
+	time.Sleep(20 * time.Second)
+	applicationLog, err := wallet.GetLogForTransaction(wallet.RPC_TESTNET, transactionID)
+	for _, v := range applicationLog.Executions {
+		log.Printf("v %+v\r\n", v)
+		for i, k := range v.Stack {
+			switch v := k.Value().(type) {
+			case *big.Int:
+				log.Printf("[int] stack item %d %d\r\n", i, k.Value().(*big.Int))
+			case string:
+				log.Printf("[string] stack item %d %s\r\n", i, k.Value().(string))
+			case []byte:
+				log.Printf("[[]byte] stack item %d %s\r\n", i, string(k.Value().([]byte)))
+			default:
+				fmt.Printf("I don't know about type %T!\n", v)
+			}
+
+		}
+	}
+	fmt.Printf("err %s\r\nappl %+v\r\n, tID %s\r\n", err, applicationLog, transactionID.StringLE())
 }
 
 

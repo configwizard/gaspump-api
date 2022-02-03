@@ -86,7 +86,7 @@ func main() {
 	cntId.Parse(containerID)
 	objectID, err := uploadObject(ctx, cli, key, cntId, filepath, attributes, sessionToken)
 	fmt.Printf("Object %s has been persisted in container %s\nview it at https://http.testnet.fs.neo.org/%s/%s", objectID, containerID, containerID, objectID)
-	objectIDs, err := ListObjects(ctx, cli, cntId, sessionToken)
+	objectIDs, err := object.ListObjects(ctx, cli, cntId, nil, sessionToken)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -100,11 +100,12 @@ func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey
 		return "", err
 	}
 
+	//read in the data here. Note large files will hang and have to be held in memory (consider a spinner/io.Pipe)
 	reader := bufio.NewReader(f)
 	var ioReader io.Reader
 	ioReader = reader
 
-	//set special attributes last so they don't get overwritten
+	//set your attributes
 	timeStampAttr := new(object2.Attribute)
 	timeStampAttr.SetKey(object2.AttributeTimestamp)
 	timeStampAttr.SetValue(strconv.FormatInt(time.Now().Unix(), 10))
@@ -119,22 +120,9 @@ func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey
 		return "", err
 	}
 
-	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attributes, sessionToken, &ioReader)
+	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attributes, nil, sessionToken, &ioReader)
 	if err != nil {
 		fmt.Println("error attempting to upload", err)
 	}
 	return id.String(), err
-}
-
-func ListObjects(ctx context.Context, cli *client.Client, containerID *cid.ID, sessionToken *session.Token) ([]*object2.ID, error) {
-	var searchParams = new (client.SearchObjectParams)
-	var filters = object2.SearchFilters{}
-	filters.AddRootFilter()
-	searchParams.WithContainerID(containerID)
-	searchParams.WithSearchFilters(filters)
-	res, err := cli.SearchObjects(ctx, searchParams, client.WithSession(sessionToken))
-	if err != nil {
-		return []*object2.ID{}, err
-	}
-	return res.IDList(), nil
 }
