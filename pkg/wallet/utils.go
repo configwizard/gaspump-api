@@ -23,7 +23,11 @@ const (
 var Prefix = NEO3Prefix
 
 func OwnerIDFromPrivateKey(key *ecdsa.PrivateKey) (*owner.ID, error) {
-	w, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
+	return OwnerIDFromPublicKey(&key.PublicKey)
+}
+
+func OwnerIDFromPublicKey(key *ecdsa.PublicKey) (*owner.ID, error) {
+	w, err := owner.NEO3WalletFromPublicKey(key)
 	if err != nil {
 		return &owner.ID{}, err
 	}

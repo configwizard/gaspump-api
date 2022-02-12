@@ -91,7 +91,7 @@ func main() {
 		log.Fatal("transaction failed ", err)
 	}
 	log.Printf("success: transaction %+v\r\nSleeping...", transaction)
-	time.Sleep(20 * time.Second)
+	time.Sleep(20 * time.Second) //wait for the network to process transaction
 	applicationLog, err := wallet.GetLogForTransaction(wallet.RPC_TESTNET, transactionID)
 	for _, v := range applicationLog.Executions {
 		log.Printf("v %+v\r\n", v)

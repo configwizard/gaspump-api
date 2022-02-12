@@ -156,7 +156,23 @@ func TransferToken(a *wallet.Account, amount int64, walletTo string, token util.
 	le := txHash.StringLE()
 	return le, err
 }
+//todo ...
+func GenerateMultiSignWalletFromSigners() {
+//	https://github.com/nspcc-dev/neo-go/blob/fdf80dbdc56d5f634908a5f0eb5ada2d9c7565af/docs/notary.md
+//useful read https://github.com/nspcc-dev/neo-go/blob/d5e11e0a75403fc56f48f23c13d25597a5d5f5a5/pkg/wallet/account_test.go#L91
+//https://medium.com/neoresearch/understanding-multisig-on-neo-df9c9c1403b1
+	//https://github.com/nspcc-dev/neo-go/blob/d5e11e0a75403fc56f48f23c13d25597a5d5f5a5/pkg/wallet/account.go#L196-L197
 
+	//example public keys
+	//hexs := []string{
+	//	//insert your key here
+	//	"02b3622bf4017bdfe317c58aed5f4c753f206b7db896046fa7d774bbc4bf7f8dc2",
+	//	"02103a7f7dd016558597f7960d27c516a4394fd968b9e65155eb4b013e4040406e",
+	//	"02a7bc55fe8684e0119768d104ba30795bdcc86619e864add26156723ed185cd62",
+	//	"03d90c07df63e690ce77912e10ab51acc944b66860237b608c4f8f8309e71ee699",
+	//}
+	//make sure YOUR public key is the first one so you can pay for the transaction
+}
 func GetPeers(ntwk RPC_NETWORK) ([]result.Peer, error){
 	ctx := context.Background()
 	// use endpoint addresses of public RPC nodes, e.g. from https://dora.coz.io/monitor

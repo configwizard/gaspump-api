@@ -20,7 +20,7 @@ import (
 
 const usage = `Example
 
-$ ./containers -wallets ./sample_wallets/wallet.json
+$ ./createContainer -wallets ./sample_wallets/wallet.json
 password is password
 `
 
@@ -28,6 +28,7 @@ var (
 	walletPath = flag.String("wallets", "", "path to JSON wallets file")
 	walletAddr = flag.String("address", "", "wallets address [optional]")
 	createWallet = flag.Bool("create", false, "create a wallets")
+
 )
 
 func main() {

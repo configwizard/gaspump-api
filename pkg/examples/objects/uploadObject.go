@@ -25,7 +25,7 @@ import (
 
 const usage = `Example
 
-$ ./objects -wallets ./sample_wallets/wallet.json
+$ ./uploadObjects -wallets ./sample_wallets/wallet.json
 password is password
 `
 
@@ -84,7 +84,7 @@ func main() {
 
 	cntId := new(cid.ID)
 	cntId.Parse(containerID)
-	objectID, err := uploadObject(ctx, cli, key, cntId, filepath, attributes, sessionToken)
+	objectID, err := uploadObject(ctx, cli, &key.PublicKey, cntId, filepath, attributes, sessionToken)
 	fmt.Printf("Object %s has been persisted in container %s\nview it at https://http.testnet.fs.neo.org/%s/%s", objectID, containerID, containerID, objectID)
 	objectIDs, err := object.ListObjects(ctx, cli, cntId, nil, sessionToken)
 	if err != nil {
@@ -93,7 +93,7 @@ func main() {
 	fmt.Printf("list objects %+v\n", objectIDs)
 }
 
-func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, containerID *cid.ID, filepath string, attributes []*object2.Attribute, sessionToken *session.Token) (string, error) {
+func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PublicKey, containerID *cid.ID, filepath string, attributes []*object2.Attribute, sessionToken *session.Token) (string, error) {
 	f, err := os.Open(filepath)
 	defer f.Close()
 	if err != nil {
@@ -115,7 +115,7 @@ func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey
 	fileNameAttr.SetValue(path.Base(filepath))
 	attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
 
-	ownerID, err := wallet.OwnerIDFromPrivateKey(key)
+	ownerID, err := wallet.OwnerIDFromPublicKey(key)
 	if err != nil {
 		return "", err
 	}
