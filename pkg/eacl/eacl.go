@@ -7,6 +7,23 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
 
+//AllowOthersReadOnly from https://github.com/nspcc-dev/neofs-s3-gw/blob/fdc07b8dc15272e2aabcbd7bb8c19e435c94e392/authmate/authmate.go#L358
+func AllowOthersReadOnly(cid *cid.ID) (*eacl.Table, error) {
+	table := eacl.NewTable()
+	record := eacl.NewRecord()
+	record.SetOperation(eacl.OperationGet)
+	record.SetAction(eacl.ActionAllow)
+	// TODO: Change this later.
+	// from := eacl.HeaderFromObject
+	// matcher := eacl.MatchStringEqual
+	// record.AddFilter(from eacl.FilterHeaderType, matcher eacl.Match, name string, value string)
+	eacl.AddFormedTarget(record, eacl.RoleOthers)
+	table.SetCID(cid)
+	table.AddRecord(record)
+
+	return table, nil
+}
+
 func CreateEACLTable(cnrID *cid.ID, publicKey *ecdsa.PublicKey) error {
 	// Attaching extended ACL:
 	// |Permit|GET|obj:Colour=Red|PublicKey:pub
