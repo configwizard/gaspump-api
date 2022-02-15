@@ -61,6 +61,10 @@ func GetCredentialsFromPath(path, address, password string) (*ecdsa.PrivateKey, 
 
 	return getKeyFromWallet(w, address, password)
 }
+func GetWalletFromPrivateKey(key *ecdsa.PrivateKey) *wallet.Account {
+	privKey := keys.PrivateKey{PrivateKey: *key}
+	return wallet.NewAccountFromPrivateKey(&privKey)
+}
 func UnlockWallet(path, address, password string) (*wallet.Account, error) {
 	w, err := wallet.NewWalletFromFile(path)
 	if err != nil {

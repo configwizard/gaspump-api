@@ -2,6 +2,7 @@ package object
 
 import (
 	"context"
+	"fmt"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -77,6 +78,7 @@ func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, 
 	putParams.WithPayloadReader(*reader)
 	response, err := cli.PutObject(ctx, putParams, client.WithBearer(bearerToken), client.WithSession(sessionToken))
 	if err != nil {
+		fmt.Println("error putting object", err)
 		return &object.ID{}, err
 	}
 	return response.ID(), err //check this might need polling to confirm success

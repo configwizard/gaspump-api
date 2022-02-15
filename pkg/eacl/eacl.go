@@ -8,18 +8,37 @@ import (
 )
 
 //AllowOthersReadOnly from https://github.com/nspcc-dev/neofs-s3-gw/blob/fdc07b8dc15272e2aabcbd7bb8c19e435c94e392/authmate/authmate.go#L358
-func AllowOthersReadOnly(cid *cid.ID) (*eacl.Table, error) {
+func AllowKeyPutRead(cid *cid.ID, toWhom *eacl.Target) (*eacl.Table, error) {
 	table := eacl.NewTable()
-	record := eacl.NewRecord()
-	record.SetOperation(eacl.OperationGet)
-	record.SetAction(eacl.ActionAllow)
-	// TODO: Change this later.
-	// from := eacl.HeaderFromObject
-	// matcher := eacl.MatchStringEqual
-	// record.AddFilter(from eacl.FilterHeaderType, matcher eacl.Match, name string, value string)
-	eacl.AddFormedTarget(record, eacl.RoleOthers)
+	targetOthers := eacl.NewTarget()
+	targetOthers.SetRole(eacl.RoleOthers)
+
+	getAllowRecord := eacl.NewRecord()
+	getAllowRecord.SetOperation(eacl.OperationGet)
+	getAllowRecord.SetAction(eacl.ActionAllow)
+	getAllowRecord.SetTargets(toWhom)
+
+	//getDenyRecord := eacl.NewRecord()
+	//getDenyRecord.SetOperation(eacl.OperationGet)
+	//getDenyRecord.SetAction(eacl.ActionDeny)
+	//getDenyRecord.SetTargets(toWhom)
+
+	putAllowRecord := eacl.NewRecord()
+	putAllowRecord.SetOperation(eacl.OperationPut)
+	putAllowRecord.SetAction(eacl.ActionAllow)
+	putAllowRecord.SetTargets(toWhom)
+
+	//putDenyRecord := eacl.NewRecord()
+	//putDenyRecord.SetOperation(eacl.OperationPut)
+	//putDenyRecord.SetAction(eacl.ActionDeny)
+	//putDenyRecord.SetTargets(toWhom)
+
 	table.SetCID(cid)
-	table.AddRecord(record)
+	table.AddRecord(getAllowRecord)
+	table.AddRecord(putAllowRecord)
+	//table.AddRecord(getDenyRecord)
+	//table.AddRecord(putDenyRecord)
+	//table.AddRecord(denyGETRecord)//deny must come first. Commented while debugging
 
 	return table, nil
 }

@@ -78,7 +78,7 @@ func main() {
 		log.Fatal("can't create NeoFS client:", err)
 	}
 	//retrieved from running the containers example
-	containerID := "2qo7LZDDHJBN833dVkyDy5gwP65qBMV5uYiFMfVLjMMA"
+	containerID := "BNTPzmzx8B9aHkHqm5v2KBhvZydEBqauQhzNbc7QefZ5" //privateBasic EACL
 	filepath := "./upload.gif"
 
 	//ok so now we are going to have two accounts. One is the 'gateway' and one is the container owner.
@@ -113,7 +113,11 @@ func main() {
 
 func gatewayCreateToken(ctx context.Context, cli *client.Client, cid *cid.ID, key *ecdsa.PublicKey) (acl.BearerToken, []byte, error) {
 	duration := int64(1)
-	eaclTable, _ := eacl.AllowOthersReadOnly(cid)
+	eaclTable, err := eacl2.AllowKeyPutRead(cid, specifiedTargetRole)
+	if err != nil {
+		log.Fatal("cant create eacl table:", err)
+	}
+	//eaclTable, _ := eacl.AllowOthersPutReady(cid)
 	//so the tokenBytes is what we sign, but we have to reattach it to the rawToken
 	return client2.GenerateUnsignedBearerToken(ctx, cli, eaclTable, duration, key)
 }
