@@ -17,7 +17,7 @@ import (
 )
 
 
-func GenerateUnsignedSessionToken(ctx context.Context, cli *client.Client, expiration uint64, table *eacl.Table, duration int64, authorizedPublicKey *ecdsa.PublicKey) (session2.SessionToken, []byte, error) {
+func GenerateUnsignedSessionToken(ctx context.Context, cli *client.Client, duration int64, expiration uint64, authorizedPublicKey *ecdsa.PublicKey) (session2.SessionToken, []byte, error) {
 	sessionResponse, err := cli.CreateSession(ctx, expiration)
 	if err != nil {
 		return session2.SessionToken{}, []byte{}, err
@@ -30,7 +30,15 @@ func GenerateUnsignedSessionToken(ctx context.Context, cli *client.Client, expir
 	st.SetOwnerID(id)
 	st.SetID(sessionResponse.ID())
 	st.SetSessionKey(sessionResponse.SessionKey())
-
+	info, err := GetNetworkInfo(ctx, cli)
+	if err != nil {
+		return session2.SessionToken{}, []byte{}, err
+	}
+	lt := new(acl.TokenLifetime)
+	lt.SetExp(CalculateEpochsForTime(info.CurrentEpoch(), duration, info.MsPerBlock())) //set the token lifetime
+	st.SetIat(lt.GetIat())
+	st.SetNbf(lt.GetNbf())
+	st.SetExp(lt.GetExp())
 	rawSessionToken := st.ToV2()
 	binaryData, err := rawSessionToken.GetBody().StableMarshal(nil)
 	return *rawSessionToken, binaryData, err

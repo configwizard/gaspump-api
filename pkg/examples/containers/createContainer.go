@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	client2 "github.com/amlwwalker/gaspump-api/pkg/client"
 	"github.com/amlwwalker/gaspump-api/pkg/wallet"
 	"github.com/nspcc-dev/neofs-sdk-go/acl"
 
@@ -56,12 +57,13 @@ func main() {
 	if err != nil {
 		log.Fatal("can't read credentials:", err)
 	}
-
+	w := wallet.GetWalletFromPrivateKey(key)
+	log.Println("using account ", w.Address)
 	cli, err := client.New(
 		// provide private key associated with request owner
 		client.WithDefaultPrivateKey(key),
 		// find endpoints in https://testcdn.fs.neo.org/doc/integrations/endpoints/
-		client.WithURIAddress("grpcs://st01.testnet.fs.neo.org:8082", nil),
+		client.WithURIAddress(string(client2.TESTNET), nil),
 		// check client errors in go compatible way
 		client.WithNeoFSErrorParsing(),
 	)
@@ -69,11 +71,11 @@ func main() {
 		log.Fatal("can't create NeoFS client:", err)
 	}
 	var attributes []*container.Attribute
-	placementPolicy := `REP 2 IN X
+	placementPolicy := `REP 2 IN X 
 	CBF 2
 	SELECT 2 FROM * AS X
 	`
-	customACL := acl.EACLReadOnlyBasicRule
+	customACL := acl.BasicACL(0x0FFFCFFF)
 	id, err := container2.Create(ctx, cli, key, placementPolicy, customACL, attributes)
 	if err != nil {
 		log.Fatal(err)

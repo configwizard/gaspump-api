@@ -3,17 +3,21 @@ package main
 import (
 	"bufio"
 	"context"
-	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
 	client2 "github.com/amlwwalker/gaspump-api/pkg/client"
+	eacl2 "github.com/amlwwalker/gaspump-api/pkg/eacl"
 	"github.com/amlwwalker/gaspump-api/pkg/object"
 	"github.com/amlwwalker/gaspump-api/pkg/wallet"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	object2 "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"io"
 	"io/ioutil"
 	"log"
@@ -25,7 +29,7 @@ import (
 
 const usage = `Example
 
-$ ./uploadObjects -wallets ./sample_wallets/wallet.json
+$ ./uploadObjects -wallets ../sample_wallets/wallet.json
 password is password
 `
 
@@ -33,6 +37,7 @@ var (
 	walletPath = flag.String("wallets", "", "path to JSON wallets file")
 	walletAddr = flag.String("address", "", "wallets address [optional]")
 	createWallet = flag.Bool("create", false, "create a wallets")
+	useBearerToken = flag.Bool("bearer", false, "use a bearer token")
 )
 
 func main() {
@@ -61,11 +66,14 @@ func main() {
 		log.Fatal("can't read credentials:", err)
 	}
 
+	w := wallet.GetWalletFromPrivateKey(key)
+	log.Println("using account ", w.Address)
+
 	cli, err := client.New(
 		// provide private key associated with request owner
 		client.WithDefaultPrivateKey(key),
 		// find endpoints in https://testcdn.fs.neo.org/doc/integrations/endpoints/
-		client.WithURIAddress("grpcs://st01.testnet.fs.neo.org:8082", nil),
+		client.WithURIAddress(string(client2.TESTNET), nil),
 		// check client errors in go compatible way
 		client.WithNeoFSErrorParsing(),
 	)
@@ -73,27 +81,69 @@ func main() {
 		log.Fatal("can't create NeoFS client:", err)
 	}
 	//retrieved from running the containers example
-	containerID := "2qo7LZDDHJBN833dVkyDy5gwP65qBMV5uYiFMfVLjMMA"
-	filepath := "./upload.gif"
-	var attributes []*object2.Attribute
-
-	sessionToken, err := client2.CreateSession(client2.DEFAULT_EXPIRATION, ctx, cli, key)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	containerID := "24HwJDCq7p878aLrDuu6qg3Ys3oSmxpbbmVjBLfApN8f"
 	cntId := new(cid.ID)
 	cntId.Parse(containerID)
-	objectID, err := uploadObject(ctx, cli, &key.PublicKey, cntId, filepath, attributes, sessionToken)
-	fmt.Printf("Object %s has been persisted in container %s\nview it at https://http.testnet.fs.neo.org/%s/%s", objectID, containerID, containerID, objectID)
-	objectIDs, err := object.ListObjects(ctx, cli, cntId, nil, sessionToken)
+
+	ownerID := owner.NewID()
+	ownerID, err = wallet.OwnerIDFromPrivateKey(key)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("cant retrieve ownerID:", err)
 	}
-	fmt.Printf("list objects %+v\n", objectIDs)
+	var sessionToken = &session.Token{}
+	var bearerToken = &token.BearerToken{}
+	log.Println("uploading to container", containerID)
+	if *useBearerToken {
+		log.Println("using bearer token...")
+		sessionToken = nil
+		//others:
+		targetOthers := eacl.NewTarget()
+		targetOthers.SetRole(eacl.RoleOthers)
+		specifiedTargetRole := eacl.NewTarget()
+		eacl.SetTargetECDSAKeys(specifiedTargetRole, &key.PublicKey)
+
+		info, err := client2.GetNetworkInfo(ctx, cli)
+		if err != nil {
+			log.Fatal("can't get network info:", err)
+		}
+		eaclTable, err := eacl2.AllowKeyPutRead(cntId, specifiedTargetRole)
+		if err != nil {
+			log.Fatal("cant create eacl table:", err)
+		}
+		//bearerToken, err = client2.ExampleBearerToken(30, cntId, ownerID, info.CurrentEpoch(), specifiedTargetRole, eaclTable, key)
+		bearerToken, err = client2.NewBearerToken(ctx, cli, ownerID, int64(info.CurrentEpoch() + 1000), eaclTable, key)
+
+		marshalBearerToken, err := client2.MarshalBearerToken(bearerToken)
+		if err != nil {
+			return
+		}
+		fmt.Println("bearer token:", base64.StdEncoding.EncodeToString(marshalBearerToken))
+		if err != nil {
+			log.Fatal("cant create bearer token:", err)
+		}
+	} else {
+		log.Println("using session token...")
+		bearerToken = nil
+		sessionToken, err = client2.CreateSession(client2.DEFAULT_EXPIRATION, ctx, cli, key)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	filepath := "./upload.gif"
+	var attributes []*object2.Attribute
+	objectID, err := uploadObject(ctx, cli, ownerID, cntId, filepath, attributes, bearerToken, sessionToken)
+	if err != nil {
+		log.Fatal("upload failed ", err)
+	}
+	fmt.Printf("Object %s has been persisted in container %s\nview it at https://http.testnet.fs.neo.org/%s/%s\r\n", objectID, containerID, containerID, objectID)
+	objectIDs, err := object.ListObjects(ctx, cli, cntId, bearerToken, sessionToken)
+	if err != nil {
+		log.Fatal("listing failed ", err)
+	}
+	fmt.Printf("list objects %+v, %s\n", len(objectIDs), objectIDs[len(objectIDs) - 1])
 }
 
-func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PublicKey, containerID *cid.ID, filepath string, attributes []*object2.Attribute, sessionToken *session.Token) (string, error) {
+func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, containerID *cid.ID, filepath string, attributes []*object2.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token) (string, error) {
 	f, err := os.Open(filepath)
 	defer f.Close()
 	if err != nil {
@@ -115,14 +165,6 @@ func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PublicKey,
 	fileNameAttr.SetValue(path.Base(filepath))
 	attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
 
-	ownerID, err := wallet.OwnerIDFromPublicKey(key)
-	if err != nil {
-		return "", err
-	}
-
-	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attributes, nil, sessionToken, &ioReader)
-	if err != nil {
-		fmt.Println("error attempting to upload", err)
-	}
+	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attributes, bearerToken, sessionToken, &ioReader)
 	return id.String(), err
 }
