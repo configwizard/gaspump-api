@@ -9,12 +9,13 @@ import (
 	"flag"
 	"fmt"
 	client2 "github.com/amlwwalker/gaspump-api/pkg/client"
-	"github.com/amlwwalker/gaspump-api/pkg/eacl"
+	eacl2 "github.com/amlwwalker/gaspump-api/pkg/eacl"
 	"github.com/amlwwalker/gaspump-api/pkg/object"
 	"github.com/amlwwalker/gaspump-api/pkg/wallet"
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"io"
 	"io/ioutil"
@@ -70,7 +71,7 @@ func main() {
 		// provide private key associated with request owner
 		client.WithDefaultPrivateKey(&gatewayKey.Accounts[0].PrivateKey().PrivateKey),
 		// find endpoints in https://testcdn.fs.neo.org/doc/integrations/endpoints/
-		client.WithURIAddress("grpcs://st01.testnet.fs.neo.org:8082", nil),
+		client.WithURIAddress(string(client2.TESTNET), nil),
 		// check client errors in go compatible way
 		client.WithNeoFSErrorParsing(),
 	)
@@ -113,6 +114,9 @@ func main() {
 
 func gatewayCreateToken(ctx context.Context, cli *client.Client, cid *cid.ID, key *ecdsa.PublicKey) (acl.BearerToken, []byte, error) {
 	duration := int64(1)
+	//specifiedTargetRole is the user who should get the access
+	specifiedTargetRole := eacl.NewTarget()
+	eacl.SetTargetECDSAKeys(specifiedTargetRole, key)
 	eaclTable, err := eacl2.AllowKeyPutRead(cid, specifiedTargetRole)
 	if err != nil {
 		log.Fatal("cant create eacl table:", err)

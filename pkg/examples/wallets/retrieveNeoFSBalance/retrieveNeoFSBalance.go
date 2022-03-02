@@ -26,6 +26,7 @@ var (
 )
 
 func main() {
+	fmt.Println(os.Getwd())
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr, usage)
 		flag.PrintDefaults()
@@ -62,6 +63,7 @@ func main() {
 	if err != nil {
 		log.Fatal("can't create NeoFS client:", err)
 	}
+
 
 	owner, err := wallet.OwnerIDFromPrivateKey(key)
 	if err != nil {
