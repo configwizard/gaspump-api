@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/amlwwalker/gaspump-api/pkg/wallet"
+	"github.com/configwizard/gaspump-api/pkg/wallet"
 	"strconv"
 	"time"
 

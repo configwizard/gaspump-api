@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	eacl2 "github.com/amlwwalker/gaspump-api/pkg/eacl"
+	eacl2 "github.com/configwizard/gaspump-api/pkg/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
