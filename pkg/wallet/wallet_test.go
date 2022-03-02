@@ -1,6 +1,7 @@
 package wallet_test
 
 import (
+    "encoding/hex" 
 	"fmt"
 	"github.com/amlwwalker/gaspump-api/pkg/wallet"
 	"github.com/stretchr/testify/assert"
@@ -29,4 +30,10 @@ func TestWalletSecureGenerateNew(t *testing.T) {
 	creds, err = wallet.GetCredentialsFromWallet("", "password", w)
 	assert.Nil(t, err, "error not nil")
 	assert.NotEqual(t, nil, creds)
+}
+
+func TestGenerateWallet(t *testing.T) {
+	w, _:= wallet.GenerateNewWallet("/tmp/wallets.json")
+	bytePublicKey := hex.EncodeToString(w.Accounts[0].PrivateKey().PublicKey().Bytes())
+    fmt.Println("test key hex:", bytePublicKey)
 }

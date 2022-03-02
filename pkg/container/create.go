@@ -55,7 +55,6 @@ func Create(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, plac
 		),
 	)
 	cnr.SetAttributes(attributes)
-
 	response, err := cli.PutContainer(ctx, cnr)
 	if err != nil {
 		return nil, fmt.Errorf("can't create new container: %w", err)

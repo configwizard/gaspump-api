@@ -9,6 +9,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"crypto/elliptic"
+	"encoding/hex"
+	"math/big"
 )
 
 const (
@@ -70,4 +73,23 @@ func StringToUint160(s string) (u util.Uint160, err error) {
 		return u, errors.New("wrong address prefix")
 	}
 	return util.Uint160DecodeBytesBE(b[1:21])
+}
+
+func BytesFromPublicKey(pub *ecdsa.PublicKey) []byte {
+	    if pub == nil || pub.X == nil || pub.Y == nil {
+	        return nil
+    }
+    publicKeyByteArray := elliptic.Marshal(pub, pub.X, pub.Y)
+	return publicKeyByteArray
+}
+func ByteArrayToString(byteArray []byte) string {
+		return hex.EncodeToString(byteArray)	
+}
+
+func PrivateKeyFromHexString(hexString string) (*ecdsa.PrivateKey, error) {
+	pk := new(ecdsa.PrivateKey)
+    pk.D, _ = new(big.Int).SetString(hexString, 16)
+    pk.PublicKey.Curve = elliptic.P256()
+    pk.PublicKey.X, pk.PublicKey.Y = pk.PublicKey.Curve.ScalarBaseMult(pk.D.Bytes())
+    return pk, nil
 }

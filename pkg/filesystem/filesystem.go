@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+    "path/filepath"
 	"context"
 	"crypto/ecdsa"
 	client2 "github.com/amlwwalker/gaspump-api/pkg/client"
@@ -16,7 +17,6 @@ import (
 type Element struct {
 	ID string `json:"id"`
 	Type string `json:"type"`
-	Name string `json:"name"",omitempty`
 	Size uint64 `json:"size"`
 	Attributes map[string]string `json:"attributes""`
 	Errors []error `json:"errors",omitempty`
@@ -38,9 +38,6 @@ func PopulateContainerList(ctx context.Context, cli *client.Client, containerID 
 	}
 	for _, a := range c.Attributes() {
 		cont.Attributes[a.Key()] = a.Value()
-	}
-	if name, ok := cont.Attributes["name"]; ok {
-		cont.Name = name
 	}
 	return cont
 }
@@ -77,6 +74,12 @@ func GenerateObjectStruct(ctx context.Context, cli *client.Client, b *token.Bear
 		for _, a := range head.Object().Attributes() {
 			obj.Attributes[a.Key()] = a.Value()
 		}
+        if filename, ok := obj.Attributes[oid.AttributeFileName]; ok {
+                obj.Attributes["X_EXT"] = filepath.Ext(filename)[1:]
+        } else {
+                obj.Attributes["X_EXT"] = ""
+        }
+
 		obj.Size = head.Object().PayloadSize()
 		size += obj.Size
 		newObjs = append(newObjs, obj)
