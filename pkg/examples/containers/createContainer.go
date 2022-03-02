@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
-	client2 "github.com/amlwwalker/gaspump-api/pkg/client"
-	"github.com/amlwwalker/gaspump-api/pkg/wallet"
+	client2 "github.com/configwizard/gaspump-api/pkg/client"
+	"github.com/configwizard/gaspump-api/pkg/wallet"
 	"github.com/nspcc-dev/neofs-sdk-go/acl"
 
 	"encoding/json"
 	"flag"
 	"fmt"
-	container2 "github.com/amlwwalker/gaspump-api/pkg/container"
+	container2 "github.com/configwizard/gaspump-api/pkg/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"io/ioutil"
 	"log"

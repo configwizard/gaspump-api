@@ -6,7 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha512"
-	"github.com/amlwwalker/gaspump-api/pkg/wallet"
+	"github.com/configwizard/gaspump-api/pkg/wallet"
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	session2 "github.com/nspcc-dev/neofs-api-go/v2/session"

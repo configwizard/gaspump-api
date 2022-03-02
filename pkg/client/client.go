@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"crypto/ecdsa"
-	"github.com/amlwwalker/gaspump-api/pkg/wallet"
+	"github.com/configwizard/gaspump-api/pkg/wallet"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/session"

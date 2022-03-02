@@ -10,8 +10,8 @@ import (
 	"math/big"
 	"time"
 
-	//"github.com/amlwwalker/gaspump-api/pkg/examples/utils"
-	"github.com/amlwwalker/gaspump-api/pkg/wallet"
+	//"github.com/configwizard/gaspump-api/pkg/examples/utils"
+	"github.com/configwizard/gaspump-api/pkg/wallet"
 	"io/ioutil"
 	"log"
 	"os"

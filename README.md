@@ -3,7 +3,7 @@
 The api holds all the backend functionality to interface with NeoFS.
 
 
-**You can `go get` this library with** `go get github.com/amlwwalker/gaspump-api`
+**You can `go get` this library with** `go get github.com/configwizard/gaspump-api`
 
 
 ### If the repository is private
@@ -13,13 +13,13 @@ you will need to be a collaborator on this repository. After that you will need 
 Then run
 
 ```shell
-go env -w GOPRIVATE=github.com/amlwwalker/gaspump-api
+go env -w GOPRIVATE=github.com/configwizard/gaspump-api
 ```
 
 then you will need to run
 
 ```shell
-git config --global url."git@github.com/amlwwalker:<YOUR ACCESS TOKEN>".insteadOf "https://github.com/amlwwalker"
+git config --global url."git@github.com/<username>:<YOUR ACCESS TOKEN>".insteadOf "https://github.com/<username>"
 ```
 
 replacing `<YOUR ACCESS TOKEN>` with your access token you retrieved earlier.

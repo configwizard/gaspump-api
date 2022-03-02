@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/amlwwalker/gaspump-api/pkg/wallet"
+	"github.com/configwizard/gaspump-api/pkg/wallet"
 	"io/ioutil"
 	"log"
 	"os"

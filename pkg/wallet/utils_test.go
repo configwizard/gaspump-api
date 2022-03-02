@@ -2,7 +2,7 @@ package wallet_test
 
 import (
 	"encoding/json"
-	wallet2 "github.com/amlwwalker/gaspump-api/pkg/wallet"
+	wallet2 "github.com/configwizard/gaspump-api/pkg/wallet"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/stretchr/testify/assert"
 	"log"

@@ -3,7 +3,7 @@ package wallet_test
 import (
     "encoding/hex" 
 	"fmt"
-	"github.com/amlwwalker/gaspump-api/pkg/wallet"
+	"github.com/configwizard/gaspump-api/pkg/wallet"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
