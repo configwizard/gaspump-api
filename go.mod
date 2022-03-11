@@ -4,10 +4,13 @@ go 1.17
 
 require (
 	github.com/nspcc-dev/neo-go v0.98.1
-	github.com/nspcc-dev/neofs-api-go/v2 v2.11.2-0.20220114101721-227a871a04ac
-	github.com/nspcc-dev/neofs-sdk-go v0.0.0-20220119080627-f83ff628fb19
+	//	github.com/nspcc-dev/neofs-api-go/v2 v2.11.2-0.20220114101721-227a871a04ac
+	//	github.com/nspcc-dev/neofs-sdk-go v0.0.0-20220119080627-f83ff628fb19
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.2
 	github.com/stretchr/testify v1.7.0
 )
+
+require github.com/nspcc-dev/neofs-api-go/v2 v2.11.2-0.20220302134950-d065453bd0a7
 
 require (
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210521073959-f0d4d129b7f1 // indirect

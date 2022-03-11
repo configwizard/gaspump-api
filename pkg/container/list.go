@@ -17,11 +17,13 @@ func List(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey) ([]*ci
 	if err != nil {
 		return nil, fmt.Errorf("can't retrieve owner ID: %w", err)
 	}
-	response, err := cli.ListContainers(ctx, ownerID)
+	l := client.PrmContainerList{}
+	l.SetAccount(*ownerID)
+	response, err := cli.ContainerList(ctx, l)
 	if err != nil {
 		return nil, fmt.Errorf("can't list container: %w", err)
 	}
 
-	return response.IDList(), nil
+	return response.Containers(), nil
 }
 

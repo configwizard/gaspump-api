@@ -33,30 +33,24 @@ func Create(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, plac
 	if err != nil {
 		return nil, fmt.Errorf("can't parse placement policy: %w", err)
 	}
-
 	ownerID, err := wallet.OwnerIDFromPrivateKey(key)
-	if err != nil {
-		return nil, fmt.Errorf("can't retrieve owner ID: %w", err)
-	}
+	// Step 1: create container
+	//containerPolicy, _ := policy.Parse("REP 2")
 	cnr := container.New(
-		// container policy defines the way objects will be
-		// placed among storage nodes from the network map
 		container.WithPolicy(containerPolicy),
-		// container owner can set BasicACL and remove container
 		container.WithOwnerID(ownerID),
-		// read more about basic ACL in specification:
-		// https://github.com/nspcc-dev/neofs-spec/blob/master/01-arch/07-acl.md
 		container.WithCustomBasicACL(customACL),
-		// Attributes are key:value string pairs they are always optional
-		//	container.WithAttribute(
-		//		container.AttributeTimestamp,
-		//		strconv.FormatInt(time.Now().Unix(), 10),
-		//	),
 	)
-	response, err := cli.PutContainer(ctx, cnr)
-	if err != nil {
-		return nil, fmt.Errorf("can't create new container: %w", err)
-	}
+	cnr.SetAttributes(attributes)
 
-	return response.ID(), nil
+	var prmContainerPut client.PrmContainerPut
+	prmContainerPut.SetContainer(*cnr)
+
+	cnrResponse, err := cli.ContainerPut(ctx, prmContainerPut)
+	if err != nil {
+		panic(err)
+	}
+	containerID := cnrResponse.ID()
+
+	return containerID, nil
 }

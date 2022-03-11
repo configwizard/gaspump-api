@@ -8,12 +8,15 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
-func Delete(ctx context.Context, cli *client.Client, containerID *cid.ID) (*client.ContainerDeleteRes, error) {
+func Delete(ctx context.Context, cli *client.Client, containerID cid.ID) (*client.ResContainerDelete, error) {
 	// Delete method requires Container ID structure.
 	// Container ID is walletAddr 32 byte binary value.
 	// String representation of container ID encoded in Base64.
 
-	response, err := cli.DeleteContainer(ctx, containerID)
+	containerDelete := client.PrmContainerDelete{}
+	containerDelete.SetContainer(containerID)
+	cli.ContainerDelete(ctx, containerDelete)
+	response, err := cli.ContainerDelete(ctx, containerDelete)
 	if err != nil {
 		return nil, fmt.Errorf("can't get container %s: %w", containerID, err)
 	}

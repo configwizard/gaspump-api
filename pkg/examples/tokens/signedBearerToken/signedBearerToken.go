@@ -16,6 +16,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	obj "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"io"
 	"io/ioutil"
@@ -105,7 +107,7 @@ func main() {
 	gatewayBearerToken := client2.ReceiveSignedBearerToken(rawBearerToken, ownerPublicKeyBytes, signedBearerBytes)
 
 	//now the gateway can act on behalf of the user, by uploading a file
-	objID, err := uploadObject(ctx, cli, &key.PublicKey, cntID, filepath, gatewayBearerToken)
+	objID, err := uploadObject(ctx, cli, &key.PublicKey, cntID, filepath, nil, gatewayBearerToken, session.Token{})
 	if err != nil {
 		log.Fatal("can't upload object on behalf of user:", err)
 	}
@@ -126,7 +128,7 @@ func gatewayCreateToken(ctx context.Context, cli *client.Client, cid *cid.ID, ke
 	return client2.GenerateUnsignedBearerToken(ctx, cli, eaclTable, duration, key)
 }
 
-func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PublicKey, containerID *cid.ID, filepath string, bearerToken *token.BearerToken) (string, error) {
+func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PublicKey, containerID *cid.ID, filepath string, attr []*obj.Attribute, bearerToken token.BearerToken, sessionToken session.Token) (string, error) {
 	f, err := os.Open(filepath)
 	defer f.Close()
 	if err != nil {
@@ -140,7 +142,7 @@ func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PublicKey,
 	if err != nil {
 		return "", err
 	}
-	id, err := object.UploadObject(ctx, cli, containerID, ownerID, nil, bearerToken, nil, &ioReader)
+	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attr, bearerToken, sessionToken, &ioReader)
 	if err != nil {
 		fmt.Println("error attempting to upload", err)
 	}

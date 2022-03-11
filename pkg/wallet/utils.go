@@ -2,6 +2,8 @@ package wallet
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
@@ -9,8 +11,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
-	"crypto/elliptic"
-	"encoding/hex"
 	"math/big"
 )
 
@@ -30,12 +30,7 @@ func OwnerIDFromPrivateKey(key *ecdsa.PrivateKey) (*owner.ID, error) {
 }
 
 func OwnerIDFromPublicKey(key *ecdsa.PublicKey) (*owner.ID, error) {
-	w, err := owner.NEO3WalletFromPublicKey(key)
-	if err != nil {
-		return &owner.ID{}, err
-	}
-
-	return owner.NewIDFromNeo3Wallet(w), nil
+	return owner.NewIDFromPublicKey(key), nil
 }
 
 func PrettyPrint(data interface{}) (string, error) {

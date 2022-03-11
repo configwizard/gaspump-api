@@ -2,23 +2,24 @@ package object
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"io"
 	"strconv"
 )
-
-func GetObjectAddress(objectID *object.ID, containerID *cid.ID) *object.Address {
-	objAddress := object.NewAddress()
-	objAddress.SetObjectID(objectID)
-	objAddress.SetContainerID(containerID)
-	return objAddress
-}
+//
+//func GetObjectAddress(objectID *oid.ID, containerID *cid.ID) *oid.Address {
+//	objAddress := object.NewAddress()
+//	objAddress.SetObjectID(objectID)
+//	objAddress.SetContainerID(containerID)
+//	return objAddress
+//}
 
 // ExpireObjectByEpochAttribute there are special attributes that start with __NEOFS__
 //these inform neoFS on certain specifications
@@ -50,90 +51,95 @@ func ExpireObjectByEpochAttribute(epoch int) *object.Attribute {
 }
 // UploadObject uploads from an io.Reader.
 // Todo: pipe for progress https://stackoverflow.com/a/56505353/1414721
-func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, ownerID *owner.ID, attr []*object.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token, reader *io.Reader) (*object.ID, error) {
-	var obj = object.NewRaw()
-	obj.SetContainerID(containerID)
-	obj.SetOwnerID(ownerID)
-	obj.SetAttributes(attr...)
-	//obj.SetPayload([]byte("data"))
+func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, ownerID *owner.ID, attr []*object.Attribute, bearerToken token.BearerToken, sessionToken session.Token, reader *io.Reader) (oid.ID, error) {
+	var objectID oid.ID
+	o := object.New()
+	o.SetContainerID(containerID)
+	o.SetOwnerID(ownerID)
+	o.SetAttributes(attr...)
 
-	//todo the headers should come in as a map so that we can search the headers and make check if these have been already set? Could leave this to the user
-	// sets FileName attribute if it wasn't set from header
-	//if _, ok := attr[object.AttributeFileName]; !ok {
-	//	filename := object.NewAttribute()
-	//	filename.SetKey(object.AttributeFileName)
-	//	filename.SetValue(file.FileName())
-	//	attributes = append(attributes, filename)
-	//}
-	//// sets Timestamp attribute if it wasn't set from header and enabled by settings
-	//if _, ok := filtered[object.AttributeTimestamp]; !ok && u.enableDefaultTimestamp {
-	//	timestamp := object.NewAttribute()
-	//	timestamp.SetKey(object.AttributeTimestamp)
-	//	timestamp.SetValue(strconv.FormatInt(time.Now().Unix(), 10))
-	//	attributes = append(attributes, timestamp)
-	//}
-
-	var putParams = new(client.PutObjectParams)
-	putParams.WithObject(obj.Object())
-	putParams.WithPayloadReader(*reader)
-	response, err := cli.PutObject(ctx, putParams, client.WithBearer(bearerToken), client.WithSession(sessionToken))
-	if err != nil {
-		fmt.Println("error putting object", err)
-		return &object.ID{}, err
+	objWriter, err := cli.ObjectPutInit(ctx, client.PrmObjectPutInit{})
+	objWriter.WithinSession(sessionToken)
+	objWriter.WithBearerToken(bearerToken)
+	if !objWriter.WriteHeader(*o) {
+		return objectID, errors.New("could not write object header")
 	}
-	return response.ID(), err //check this might need polling to confirm success
+	//objWriter.Wri
+	objWriter.WritePayloadChunk([]byte("data"))
+	res, err := objWriter.Close()
+	if err != nil {
+		return objectID, err
+	}
+
+	res.ReadStoredObjectID(&objectID)
+
+	return objectID, err //check this might need polling to confirm success
 }
 
-func GetObjectMetaData(ctx context.Context, cli *client.Client, objectAddress *object.Address, bearerToken *token.BearerToken, sessionToken *session.Token) (*client.ObjectHeadRes, error){
-	var headParams = new(client.ObjectHeaderParams)
-	headParams.WithAddress(objectAddress)
-	headObject, err := cli.HeadObject(ctx, headParams, client.WithBearer(bearerToken), client.WithSession(sessionToken))
+func GetObjectMetaData(ctx context.Context, cli *client.Client, objectID oid.ID, containerID cid.ID, bearerToken token.BearerToken, sessionToken session.Token) (object.Object, error){
+	h := client.PrmObjectHead{}
+	h.ByID(objectID)
+	h.WithinSession(sessionToken)
+	h.WithBearerToken(bearerToken)
+	h.FromContainer(containerID)
+	var o = object.Object{}
+	head, err := cli.ObjectHead(ctx, h)
 	if err != nil {
-		return &client.ObjectHeadRes{}, err
+		return o, err
 	}
-	return headObject, nil
+	response := head.ReadHeader(&o)
+	if !response {
+		return o, errors.New("could not read the object header. Did not exist")
+	}
+	return o, nil
 }
 // GetObject does pecisely that. Returns bytes
 // Todo: https://stackoverflow.com/a/56505353/1414721
 // for progress bar
-func GetObject(ctx context.Context, cli *client.Client, objectAddress *object.Address, bearerToken *token.BearerToken, sessionToken *session.Token, writer *io.Writer) ([]byte, error){
-	var getParams = new(client.GetObjectParams)
-	getParams.WithAddress(objectAddress)
-	getParams.WithPayloadWriter(*writer)
-	object, err := cli.GetObject(ctx, getParams, client.WithBearer(bearerToken), client.WithSession(sessionToken))
-	if err != nil {
-		return []byte{}, err
-	}
-	return object.Object().Payload(), nil
+func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerToken token.BearerToken, sessionToken session.Token, writer *io.Writer) ([]byte, error){
+	getParms := client.PrmObjectGet{}
+	getParms.ByID(objectID)
+	getParms.WithBearerToken(bearerToken)
+	getParms.WithinSession(sessionToken)
+	getter, err := cli.ObjectGetInit(ctx, getParms)
+	receivedBytes := []byte{}
+	//getter.ReadChunk(receivedBytes)
+	_, err = getter.Read(receivedBytes)
+	return receivedBytes, err
 }
 
-func ListObjects(ctx context.Context, cli *client.Client, containerID *cid.ID, bearerToken *token.BearerToken, sessionToken *session.Token) ([]*object.ID, error) {
-	var searchParams = new (client.SearchObjectParams)
-	var filters = object.SearchFilters{}
-	filters.AddRootFilter()
-	searchParams.WithContainerID(containerID)
-	searchParams.WithSearchFilters(filters)
-	res, err := cli.SearchObjects(ctx, searchParams, client.WithBearer(bearerToken), client.WithSession(sessionToken))
+// QueryObjects to query objects with no search terms
+/*
+	//var filters = object.SearchFilters{}
+	//filters.AddRootFilter()
+ */
+func QueryObjects(ctx context.Context, cli *client.Client, containerID cid.ID, filters object.SearchFilters, bearerToken token.BearerToken, sessionToken session.Token) ([]oid.ID, error) {
+	search := client.PrmObjectSearch{}
+	search.WithBearerToken(bearerToken)
+	search.WithinSession(sessionToken)
+
+	search.SetFilters(filters)
+	search.InContainer(containerID)
+	
+	var list []oid.ID
+	searchInit, err := cli.ObjectSearchInit(ctx,search)
 	if err != nil {
-		return []*object.ID{}, err
+		return list, err
 	}
-	return res.IDList(), nil
+
+	err = searchInit.Iterate(func(id oid.ID) bool {
+		list = append(list, id)
+		return true
+	})
+	return list, err
 }
 
-func SearchObjects(ctx context.Context, cli *client.Client, containerID *cid.ID, searchFilters object.SearchFilters, bearerToken *token.BearerToken, sessionToken *session.Token) ([]*object.ID, error) {
-	var searchParams = new (client.SearchObjectParams)
-	searchParams.WithContainerID(containerID)
-	searchParams.WithSearchFilters(searchFilters)
-	res, err := cli.SearchObjects(ctx, searchParams, client.WithBearer(bearerToken), client.WithSession(sessionToken))
-	if err != nil {
-		return []*object.ID{}, err
-	}
-	return res.IDList(), nil
-}
-
-func DeleteObject(ctx context.Context, cli *client.Client, objectAddress *object.Address, bearerToken *token.BearerToken, sessionToken *session.Token) (error) {
-	var deleteParams = new (client.DeleteObjectParams)
-	deleteParams.WithAddress(objectAddress)
-	_, err := cli.DeleteObject(ctx, deleteParams, client.WithBearer(bearerToken), client.WithSession(sessionToken))
-	return err
+func DeleteObject(ctx context.Context, cli *client.Client, objectID oid.ID, containerID cid.ID, bearerToken token.BearerToken, sessionToken session.Token) (*client.ResObjectDelete, error) {
+	del := client.PrmObjectDelete{}
+	del.WithBearerToken(bearerToken)
+	del.WithinSession(sessionToken)
+	del.ByID(objectID)
+	del.FromContainer(containerID)
+	deleteResponse, err := cli.ObjectDelete(ctx, del)
+	return deleteResponse, err
 }
