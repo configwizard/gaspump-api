@@ -18,7 +18,9 @@ import (
 
 
 func GenerateUnsignedSessionToken(ctx context.Context, cli *client.Client, duration int64, expiration uint64, authorizedPublicKey *ecdsa.PublicKey) (session2.SessionToken, []byte, error) {
-	sessionResponse, err := cli.CreateSession(ctx, expiration)
+	create := client.PrmSessionCreate{}
+	create.SetExp(expiration)
+	sessionResponse, err := cli.SessionCreate(ctx, create)
 	if err != nil {
 		return session2.SessionToken{}, []byte{}, err
 	}
@@ -29,7 +31,7 @@ func GenerateUnsignedSessionToken(ctx context.Context, cli *client.Client, durat
 	}
 	st.SetOwnerID(id)
 	st.SetID(sessionResponse.ID())
-	st.SetSessionKey(sessionResponse.SessionKey())
+	st.SetSessionKey(sessionResponse.PublicKey())
 	info, err := GetNetworkInfo(ctx, cli)
 	if err != nil {
 		return session2.SessionToken{}, []byte{}, err
@@ -88,7 +90,7 @@ func SignBytesOnBehalf(binaryData []byte, privateKey *ecdsa.PrivateKey) ([]byte,
 // ReceiveSignedBearerToken takes the raw signed token and reattaches it to a token that the gateway can then use
 // 	ownerPublicKey is the 33 byte public key from wallet provider
 //	publicKey := elliptic.Marshal(ownerPublicKey, ownerPublicKey.X, ownerPublicKey.Y)
-func ReceiveSignedBearerToken(rawBearerToken acl.BearerToken, ownerPublicKey []byte, signatureData []byte) *token.BearerToken {
+func ReceiveSignedBearerToken(rawBearerToken acl.BearerToken, ownerPublicKey []byte, signatureData []byte) token.BearerToken {
 	// Attach signature to the bearer token,
 	signature := new(refs.Signature) // RAW protobuf structure github.com/nspcc-dev/neofs-api-go/v2/refs
 	signature.SetSign(signatureData)
@@ -96,7 +98,7 @@ func ReceiveSignedBearerToken(rawBearerToken acl.BearerToken, ownerPublicKey []b
 	rawBearerToken.SetSignature(signature)
 	// We can convert RAW protobuf structure back to SDK structure.
 	signedBearerToken := token.NewBearerTokenFromV2(&rawBearerToken)
-	return signedBearerToken
+	return *signedBearerToken
 }
 
 // ReceiveSignedSessionToken takes the raw signed token and reattaches it to a token that the gateway can then use

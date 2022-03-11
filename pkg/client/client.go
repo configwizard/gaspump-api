@@ -29,7 +29,9 @@ func NewClient(privateKey *ecdsa.PrivateKey, network FS_NETWORK) (*client.Client
 }
 
 func CreateSession(expiration uint64, ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey) (*session.Token, error){
-	sessionResponse, err := cli.CreateSession(ctx, expiration)
+	create := client.PrmSessionCreate{}
+	create.SetExp(expiration)
+	sessionResponse, err := cli.SessionCreate(ctx, create)
 	if err != nil {
 		return &session.Token{}, err
 	}
@@ -40,13 +42,14 @@ func CreateSession(expiration uint64, ctx context.Context, cli *client.Client, k
 	}
 	st.SetOwnerID(id)
 	st.SetID(sessionResponse.ID())
-	st.SetSessionKey(sessionResponse.SessionKey())
+	st.SetSessionKey(sessionResponse.PublicKey())
 	return st, nil
 }
 
 
 func GetNetworkInfo(ctx context.Context, cli *client.Client) (*netmap.NetworkInfo, error) {
-	info, err := cli.NetworkInfo(ctx)
+	networkInfo := client.PrmNetworkInfo{}
+	info, err := cli.NetworkInfo(ctx, networkInfo)
 	if err != nil {
 		return &netmap.NetworkInfo{}, err
 	}

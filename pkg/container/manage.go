@@ -11,8 +11,10 @@ import (
 	"time"
 )
 
-func SetEACLOnContainer(ctx context.Context, cli *client.Client, containerID *cid.ID, table *eacl.Table) error {
-	_, err := cli.SetEACL(ctx, table)
+func SetEACLOnContainer(ctx context.Context, cli *client.Client, containerID cid.ID, table eacl.Table) error {
+	setEACL := client.PrmContainerSetEACL{}
+	setEACL.SetTable(table)
+	_, err := cli.ContainerSetEACL(ctx, setEACL)
 	if err != nil {
 		return fmt.Errorf("can't set extended ACL: %w", err)
 	}
@@ -22,7 +24,9 @@ func SetEACLOnContainer(ctx context.Context, cli *client.Client, containerID *ci
 			return errors.New("timeout, extended ACL was not persisted in side chain")
 		}
 		time.Sleep(time.Second)
-		resp, err := cli.EACL(ctx, containerID)
+		containerEACL := client.PrmContainerEACL{}
+		containerEACL.SetContainer(containerID)
+		resp, err := cli.ContainerEACL(ctx, containerEACL)
 		if err == nil {
 			// there is no equal method for records yet, so we have to
 			// implement it manually

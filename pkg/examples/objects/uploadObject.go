@@ -90,6 +90,7 @@ func main() {
 	if err != nil {
 		log.Fatal("cant retrieve ownerID:", err)
 	}
+	//pointers so we can have nil tokens
 	var sessionToken = &session.Token{}
 	var bearerToken = &token.BearerToken{}
 	log.Println("uploading to container", containerID)
@@ -113,7 +114,7 @@ func main() {
 		//bearerToken, err = client2.ExampleBearerToken(30, cntId, ownerID, info.CurrentEpoch(), specifiedTargetRole, eaclTable, key)
 		bearerToken, err = client2.NewBearerToken(ctx, cli, ownerID, int64(info.CurrentEpoch() + 1000), eaclTable, key)
 
-		marshalBearerToken, err := client2.MarshalBearerToken(bearerToken)
+		marshalBearerToken, err := client2.MarshalBearerToken(*bearerToken)
 		if err != nil {
 			return
 		}
@@ -131,19 +132,21 @@ func main() {
 	}
 	filepath := "./upload.gif"
 	var attributes []*object2.Attribute
-	objectID, err := uploadObject(ctx, cli, ownerID, cntId, filepath, attributes, bearerToken, sessionToken)
+	objectID, err := uploadObject(ctx, cli, ownerID, cntId, filepath, attributes, *bearerToken, *sessionToken)
 	if err != nil {
 		log.Fatal("upload failed ", err)
 	}
+	filter := object2.SearchFilters{}
+	filter.AddRootFilter()
 	fmt.Printf("Object %s has been persisted in container %s\nview it at https://http.testnet.fs.neo.org/%s/%s\r\n", objectID, containerID, containerID, objectID)
-	objectIDs, err := object.ListObjects(ctx, cli, cntId, bearerToken, sessionToken)
+	objectIDs, err := object.QueryObjects(ctx, cli, *cntId, filter, *bearerToken, *sessionToken)
 	if err != nil {
 		log.Fatal("listing failed ", err)
 	}
 	fmt.Printf("list objects %+v, %s\n", len(objectIDs), objectIDs[len(objectIDs) - 1])
 }
 
-func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, containerID *cid.ID, filepath string, attributes []*object2.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token) (string, error) {
+func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, containerID *cid.ID, filepath string, attributes []*object2.Attribute, bearerToken token.BearerToken, sessionToken session.Token) (string, error) {
 	f, err := os.Open(filepath)
 	defer f.Close()
 	if err != nil {

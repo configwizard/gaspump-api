@@ -86,7 +86,7 @@ func main() {
 		if i == 30 {
 			log.Fatalf("Timeout, container %s was not persisted in side chain\n", id)
 		}
-		_, err = container2.Get(ctx, cli, id)
+		_, err = container2.Get(ctx, cli, *id)
 		if err == nil {
 			break
 		}

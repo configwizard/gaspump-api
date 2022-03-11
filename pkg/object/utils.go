@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/pool"
@@ -31,9 +32,10 @@ type epochDurations struct {
 }
 
 func getEpochDurations(ctx context.Context, p pool.Pool) (*epochDurations, error) {
+	info := client.PrmNetworkInfo{}
 	if conn, _, err := p.Connection(); err != nil {
 		return nil, err
-	} else if networkInfoRes, err := conn.NetworkInfo(ctx); err != nil {
+	} else if networkInfoRes, err := conn.NetworkInfo(ctx, info); err != nil {
 		return nil, err
 	} else if err = apistatus.ErrFromStatus(networkInfoRes.Status()); err != nil {
 		return nil, err

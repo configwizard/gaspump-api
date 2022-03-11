@@ -69,7 +69,9 @@ func main() {
 	if err != nil {
 		log.Fatal("can't get owner from private key:", err)
 	}
-	result, err := cli.GetBalance(ctx, owner)
+	get := client.PrmBalanceGet{}
+	get.SetAccount(*owner)
+	result, err := cli.BalanceGet(ctx, get)
 	if err != nil {
 		log.Fatal("can't get NeoFS Balance:", err)
 	}

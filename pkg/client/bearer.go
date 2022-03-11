@@ -63,7 +63,7 @@ func NewBearerToken(ctx context.Context, cli *client.Client, tokenReceiver *owne
 	err = btoken.SignToken(containerOwnerKey)
 	return btoken, err
 }
-func MarshalBearerToken(btoken *token.BearerToken) ([]byte, error) {
+func MarshalBearerToken(btoken token.BearerToken) ([]byte, error) {
 	// Marshal and provide it to bearer token user
 	jsonData, err := btoken.Marshal()
 	return jsonData, err

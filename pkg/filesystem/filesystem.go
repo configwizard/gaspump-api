@@ -1,17 +1,17 @@
 package filesystem
 
 import (
-    "path/filepath"
 	"context"
 	"crypto/ecdsa"
-	client2 "github.com/configwizard/gaspump-api/pkg/client"
 	"github.com/configwizard/gaspump-api/pkg/container"
 	"github.com/configwizard/gaspump-api/pkg/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object"
+	obj "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
+	"path/filepath"
 )
 
 type Element struct {
@@ -24,7 +24,7 @@ type Element struct {
 }
 
 // PopulateContainerList returns a container with its attributes as an Element (used by GenerateFileSystemFromContainer)
-func PopulateContainerList(ctx context.Context, cli *client.Client, containerID *cid.ID) Element {
+func PopulateContainerList(ctx context.Context, cli *client.Client, containerID cid.ID) Element {
 	cont := Element{
 		Type: "container",
 		ID: containerID.String(),
@@ -43,59 +43,60 @@ func PopulateContainerList(ctx context.Context, cli *client.Client, containerID 
 }
 
 // GenerateFileSystemFromContainer wraps the output of GenerateObjectStruct in a container element
-func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, containerID *cid.ID) Element {
-
+func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, containerID cid.ID, bearerToken token.BearerToken, sessionToken session.Token) Element {
+	var filters = obj.SearchFilters{}
+	filters.AddRootFilter()
 	cont := PopulateContainerList(ctx, cli, containerID)
 	//list the contents:
-	s, err := client2.CreateSession(client2.DEFAULT_EXPIRATION, ctx, cli, key)
-	objs, err := object.ListObjects(ctx, cli, containerID, nil, s)
+	//s, err := client2.CreateSession(client2.DEFAULT_EXPIRATION, ctx, cli, key)
+	objs, err := object.QueryObjects(ctx, cli, containerID, filters, bearerToken, sessionToken)
 	if err != nil {
 		cont.Errors = append(cont.Errors, err)
 	}
-	cont.Size, cont.Children = GenerateObjectStruct(ctx, cli, nil, s, objs, containerID)
+	cont.Size, cont.Children = GenerateObjectStruct(ctx, cli, objs, containerID, bearerToken, sessionToken)
 	return cont
 }
 
 //GenerateObjectStruct returns an array of elements containing all the objects owned by the contianer ID
-func GenerateObjectStruct(ctx context.Context, cli *client.Client, b *token.BearerToken, s *session.Token, objs []*oid.ID, containerID *cid.ID) (uint64, []Element){
+func GenerateObjectStruct(ctx context.Context, cli *client.Client, objs []oid.ID, containerID cid.ID, b token.BearerToken, s session.Token) (uint64, []Element){
 	var newObjs []Element
 	size := uint64(0)
 	for _, o := range objs {
-		obj := Element{
+		tmp := Element{
 			Type: "object",
 			ID:         o.String(),
 			Attributes: make(map[string]string),
 		}
-		objAddress := object.GetObjectAddress(o, containerID)
-		head, err := object.GetObjectMetaData(ctx, cli, objAddress, b, s)
+		//objAddress := object.GetObjectAddress(o, containerID)
+		head, err := object.GetObjectMetaData(ctx, cli, o, containerID, b, s)
 		if err != nil {
-			obj.Errors = append(obj.Errors, err)
+			tmp.Errors = append(tmp.Errors, err)
 		}
 		for _, a := range head.Object().Attributes() {
-			obj.Attributes[a.Key()] = a.Value()
+			tmp.Attributes[a.Key()] = a.Value()
 		}
-        if filename, ok := obj.Attributes[oid.AttributeFileName]; ok {
-                obj.Attributes["X_EXT"] = filepath.Ext(filename)[1:]
+        if filename, ok := tmp.Attributes[obj.AttributeFileName]; ok {
+			tmp.Attributes["X_EXT"] = filepath.Ext(filename)[1:]
         } else {
-                obj.Attributes["X_EXT"] = ""
+			tmp.Attributes["X_EXT"] = ""
         }
 
-		obj.Size = head.Object().PayloadSize()
-		size += obj.Size
-		newObjs = append(newObjs, obj)
+		tmp.Size = head.Object().PayloadSize()
+		size += tmp.Size
+		newObjs = append(newObjs, tmp)
 	}
 	return size, newObjs
 }
 
 //GenerateFileSystem returns an array of every object in every container the wallet key owns
-func GenerateFileSystem(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey) ([]Element, error){
+func GenerateFileSystem(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, bearerToken token.BearerToken, sessionToken session.Token) ([]Element, error){
 	var fileSystem []Element
 	containerIds, err := container.List(ctx, cli, key)
 	if err != nil {
 		return []Element{}, err
 	}
 	for _, id := range containerIds {
-		fileSystem = append(fileSystem, GenerateFileSystemFromContainer(ctx, cli, key, id))
+		fileSystem = append(fileSystem, GenerateFileSystemFromContainer(ctx, cli, *id, bearerToken, sessionToken))
 	}
 	return fileSystem, nil
 }
