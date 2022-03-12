@@ -64,30 +64,37 @@ func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, 
 	if !objWriter.WriteHeader(*o) {
 		return objectID, errors.New("could not write object header")
 	}
-	//objWriter.Wri
-	objWriter.WritePayloadChunk([]byte("data"))
+	buf := make([]byte, 1024*1024) // 1 MiB
+	for {
+		// update progress bar
+		_, err := (*reader).Read(buf)
+		if !objWriter.WritePayloadChunk(buf) {
+			break
+		}
+		if errors.Is(err, io.EOF) {
+			break
+		}
+	}
 	res, err := objWriter.Close()
 	if err != nil {
 		return objectID, err
 	}
-
 	res.ReadStoredObjectID(&objectID)
-
 	return objectID, err //check this might need polling to confirm success
 }
 
-func GetObjectMetaData(ctx context.Context, cli *client.Client, objectID oid.ID, containerID cid.ID, bearerToken token.BearerToken, sessionToken session.Token) (object.Object, error){
+func GetObjectMetaData(ctx context.Context, cli *client.Client, objectID oid.ID, containerID cid.ID, bearerToken token.BearerToken, sessionToken session.Token) (*object.Object, error){
 	h := client.PrmObjectHead{}
 	h.ByID(objectID)
 	h.WithinSession(sessionToken)
 	h.WithBearerToken(bearerToken)
 	h.FromContainer(containerID)
-	var o = object.Object{}
+	var o = &object.Object{}
 	head, err := cli.ObjectHead(ctx, h)
 	if err != nil {
 		return o, err
 	}
-	response := head.ReadHeader(&o)
+	response := head.ReadHeader(o)
 	if !response {
 		return o, errors.New("could not read the object header. Did not exist")
 	}
@@ -96,16 +103,33 @@ func GetObjectMetaData(ctx context.Context, cli *client.Client, objectID oid.ID,
 // GetObject does pecisely that. Returns bytes
 // Todo: https://stackoverflow.com/a/56505353/1414721
 // for progress bar
-func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerToken token.BearerToken, sessionToken session.Token, writer *io.Writer) ([]byte, error){
+func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerToken token.BearerToken, sessionToken session.Token, writer io.Writer) (*object.Object, error){
+	dstObject := &object.Object{}
 	getParms := client.PrmObjectGet{}
 	getParms.ByID(objectID)
 	getParms.WithBearerToken(bearerToken)
 	getParms.WithinSession(sessionToken)
-	getter, err := cli.ObjectGetInit(ctx, getParms)
-	receivedBytes := []byte{}
-	_,	//getter.ReadChunk(receivedBytes)
-		err = getter.Read(receivedBytes)
-	return receivedBytes, err
+	objReader, err := cli.ObjectGetInit(ctx, getParms)
+	if err != nil {
+		return dstObject, err
+	}
+	if !objReader.ReadHeader(dstObject) {
+		_, err = objReader.Close()
+		return dstObject, err
+	}
+	buf := make([]byte, 1024*1024) // 1 MiB
+	for {
+		_, err := objReader.Read(buf)
+
+		// get total size from object header and update progress bar based on n bytes received
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if _, writerErr := writer.Write(buf); writerErr != nil {
+			return nil, errors.New("error writing to buffer: " + writerErr.Error())
+		}
+	}
+	return dstObject, err //return pointer to avoid passing around large payloads?
 }
 
 // QueryObjects to query objects with no search terms

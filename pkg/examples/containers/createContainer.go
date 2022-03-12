@@ -75,7 +75,7 @@ func main() {
 	CBF 2
 	SELECT 2 FROM * AS X
 	`
-	customACL := acl.BasicACL(0x0FFFCFFF)
+	customACL := acl.BasicACL(acl.EACLPublicBasicRule)
 	id, err := container2.Create(ctx, cli, key, placementPolicy, customACL, attributes)
 	if err != nil {
 		log.Fatal(err)
