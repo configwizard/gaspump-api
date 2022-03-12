@@ -107,7 +107,7 @@ func main() {
 	gatewayBearerToken := client2.ReceiveSignedBearerToken(rawBearerToken, ownerPublicKeyBytes, signedBearerBytes)
 
 	//now the gateway can act on behalf of the user, by uploading a file
-	objID, err := uploadObject(ctx, cli, &key.PublicKey, cntID, filepath, nil, gatewayBearerToken, session.Token{})
+	objID, err := uploadObject(ctx, cli, &key.PublicKey, cntID, filepath, nil, gatewayBearerToken, nil)
 	if err != nil {
 		log.Fatal("can't upload object on behalf of user:", err)
 	}
@@ -128,7 +128,7 @@ func gatewayCreateToken(ctx context.Context, cli *client.Client, cid *cid.ID, ke
 	return client2.GenerateUnsignedBearerToken(ctx, cli, eaclTable, duration, key)
 }
 
-func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PublicKey, containerID *cid.ID, filepath string, attr []*obj.Attribute, bearerToken token.BearerToken, sessionToken session.Token) (string, error) {
+func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PublicKey, containerID *cid.ID, filepath string, attr []*obj.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token) (string, error) {
 	f, err := os.Open(filepath)
 	defer f.Close()
 	if err != nil {
