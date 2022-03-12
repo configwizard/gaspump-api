@@ -103,8 +103,8 @@ func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerT
 	getParms.WithinSession(sessionToken)
 	getter, err := cli.ObjectGetInit(ctx, getParms)
 	receivedBytes := []byte{}
-	//getter.ReadChunk(receivedBytes)
-	_, err = getter.Read(receivedBytes)
+	_,	//getter.ReadChunk(receivedBytes)
+		err = getter.Read(receivedBytes)
 	return receivedBytes, err
 }
 
