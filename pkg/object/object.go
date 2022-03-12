@@ -51,7 +51,7 @@ func ExpireObjectByEpochAttribute(epoch int) *object.Attribute {
 }
 // UploadObject uploads from an io.Reader.
 // Todo: pipe for progress https://stackoverflow.com/a/56505353/1414721
-func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, ownerID *owner.ID, attr []*object.Attribute, bearerToken token.BearerToken, sessionToken session.Token, reader *io.Reader) (oid.ID, error) {
+func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, ownerID *owner.ID, attr []*object.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token, reader *io.Reader) (oid.ID, error) {
 	var objectID oid.ID
 	o := object.New()
 	o.SetContainerID(containerID)
@@ -59,8 +59,13 @@ func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, 
 	o.SetAttributes(attr...)
 
 	objWriter, err := cli.ObjectPutInit(ctx, client.PrmObjectPutInit{})
-	objWriter.WithinSession(sessionToken)
-	objWriter.WithBearerToken(bearerToken)
+	if sessionToken != nil {
+		objWriter.WithinSession(*sessionToken)
+	}
+	if bearerToken != nil {
+		objWriter.WithBearerToken(*bearerToken)
+	}
+
 	if !objWriter.WriteHeader(*o) {
 		return objectID, errors.New("could not write object header")
 	}
@@ -83,11 +88,15 @@ func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, 
 	return objectID, err //check this might need polling to confirm success
 }
 
-func GetObjectMetaData(ctx context.Context, cli *client.Client, objectID oid.ID, containerID cid.ID, bearerToken token.BearerToken, sessionToken session.Token) (*object.Object, error){
+func GetObjectMetaData(ctx context.Context, cli *client.Client, objectID oid.ID, containerID cid.ID, bearerToken *token.BearerToken, sessionToken *session.Token) (*object.Object, error){
 	h := client.PrmObjectHead{}
 	h.ByID(objectID)
-	h.WithinSession(sessionToken)
-	h.WithBearerToken(bearerToken)
+	if sessionToken != nil {
+		h.WithinSession(*sessionToken)
+	}
+	if bearerToken != nil {
+		h.WithBearerToken(*bearerToken)
+	}
 	h.FromContainer(containerID)
 	var o = &object.Object{}
 	head, err := cli.ObjectHead(ctx, h)
@@ -103,12 +112,16 @@ func GetObjectMetaData(ctx context.Context, cli *client.Client, objectID oid.ID,
 // GetObject does pecisely that. Returns bytes
 // Todo: https://stackoverflow.com/a/56505353/1414721
 // for progress bar
-func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerToken token.BearerToken, sessionToken session.Token, writer io.Writer) (*object.Object, error){
+func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerToken *token.BearerToken, sessionToken *session.Token, writer io.Writer) (*object.Object, error){
 	dstObject := &object.Object{}
 	getParms := client.PrmObjectGet{}
 	getParms.ByID(objectID)
-	getParms.WithBearerToken(bearerToken)
-	getParms.WithinSession(sessionToken)
+	if sessionToken != nil {
+		getParms.WithinSession(*sessionToken)
+	}
+	if bearerToken != nil {
+		getParms.WithBearerToken(*bearerToken)
+	}
 	objReader, err := cli.ObjectGetInit(ctx, getParms)
 	if err != nil {
 		return dstObject, err
@@ -137,11 +150,14 @@ func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerT
 	//var filters = object.SearchFilters{}
 	//filters.AddRootFilter()
  */
-func QueryObjects(ctx context.Context, cli *client.Client, containerID cid.ID, filters object.SearchFilters, bearerToken token.BearerToken, sessionToken session.Token) ([]oid.ID, error) {
+func QueryObjects(ctx context.Context, cli *client.Client, containerID cid.ID, filters object.SearchFilters, bearerToken *token.BearerToken, sessionToken *session.Token) ([]oid.ID, error) {
 	search := client.PrmObjectSearch{}
-	search.WithBearerToken(bearerToken)
-	search.WithinSession(sessionToken)
-
+	if sessionToken != nil {
+		search.WithinSession(*sessionToken)
+	}
+	if bearerToken != nil {
+		search.WithBearerToken(*bearerToken)
+	}
 	search.SetFilters(filters)
 	search.InContainer(containerID)
 	
@@ -158,10 +174,14 @@ func QueryObjects(ctx context.Context, cli *client.Client, containerID cid.ID, f
 	return list, err
 }
 
-func DeleteObject(ctx context.Context, cli *client.Client, objectID oid.ID, containerID cid.ID, bearerToken token.BearerToken, sessionToken session.Token) (*client.ResObjectDelete, error) {
+func DeleteObject(ctx context.Context, cli *client.Client, objectID oid.ID, containerID cid.ID, bearerToken *token.BearerToken, sessionToken *session.Token) (*client.ResObjectDelete, error) {
 	del := client.PrmObjectDelete{}
-	del.WithBearerToken(bearerToken)
-	del.WithinSession(sessionToken)
+	if sessionToken != nil {
+		del.WithinSession(*sessionToken)
+	}
+	if bearerToken != nil {
+		del.WithBearerToken(*bearerToken)
+	}
 	del.ByID(objectID)
 	del.FromContainer(containerID)
 	deleteResponse, err := cli.ObjectDelete(ctx, del)

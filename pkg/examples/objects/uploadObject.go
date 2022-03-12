@@ -132,21 +132,21 @@ func main() {
 	}
 	filepath := "./upload.gif"
 	var attributes []*object2.Attribute
-	objectID, err := uploadObject(ctx, cli, ownerID, cntId, filepath, attributes, *bearerToken, *sessionToken)
+	objectID, err := uploadObject(ctx, cli, ownerID, cntId, filepath, attributes, bearerToken, sessionToken)
 	if err != nil {
 		log.Fatal("upload failed ", err)
 	}
 	filter := object2.SearchFilters{}
 	filter.AddRootFilter()
 	fmt.Printf("Object %s has been persisted in container %s\nview it at https://http.testnet.fs.neo.org/%s/%s\r\n", objectID, containerID, containerID, objectID)
-	objectIDs, err := object.QueryObjects(ctx, cli, *cntId, filter, *bearerToken, *sessionToken)
+	objectIDs, err := object.QueryObjects(ctx, cli, *cntId, filter, bearerToken, sessionToken)
 	if err != nil {
 		log.Fatal("listing failed ", err)
 	}
 	fmt.Printf("list objects %+v, %s\n", len(objectIDs), objectIDs[len(objectIDs) - 1])
 }
 
-func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, containerID *cid.ID, filepath string, attributes []*object2.Attribute, bearerToken token.BearerToken, sessionToken session.Token) (string, error) {
+func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, containerID *cid.ID, filepath string, attributes []*object2.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token) (string, error) {
 	f, err := os.Open(filepath)
 	defer f.Close()
 	if err != nil {
