@@ -7,6 +7,15 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha512"
+	"errors"
+	"flag"
+	"fmt"
+	"github.com/nspcc-dev/neo-go/cli/flags"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-sdk-go/acl"
+	"log"
+	"os"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -22,15 +31,73 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
+const usage = `Example
 
+$ ./uploadObjects -wallets ../sample_wallets/wallet.json
+password is password
+`
+
+var (
+	walletPath = flag.String("wallets", "", "path to JSON wallets file")
+	walletAddr = flag.String("address", "", "wallets address [optional]")
+	createWallet = flag.Bool("create", false, "create a wallets")
+	useBearerToken = flag.Bool("bearer", false, "use a bearer token")
+)
+
+// getKeyFromWallet fetches private key from neo-go wallets structure
+func getKeyFromWallet(w *wallet.Wallet, addrStr, password string) (*ecdsa.PrivateKey, error) {
+	var (
+		addr util.Uint160
+		err  error
+	)
+
+	if addrStr == "" {
+		addr = w.GetChangeAddress()
+	} else {
+		addr, err = flags.ParseAddress(addrStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid wallets address %s: %w", addrStr, err)
+		}
+	}
+
+	acc := w.GetAccount(addr)
+	if acc == nil {
+		return nil, fmt.Errorf("invalid wallets address %s: %w", addrStr, err)
+	}
+
+	if err := acc.Decrypt(password, keys.NEP2ScryptParams()); err != nil {
+		return nil, errors.New("[decrypt] invalid password - " + err.Error())
+
+	}
+
+	return &acc.PrivateKey().PrivateKey, nil
+}
+func GetCredentialsFromPath(path, address, password string) (*ecdsa.PrivateKey, error) {
+	w, err := wallet.NewWalletFromFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("can't read the wallets: %walletPath", err)
+	}
+
+	return getKeyFromWallet(w, address, password)
+}
 func main() {
 	// Step 0: prepare credentials.
 	// There are two keys:
 	// - containerOwnerKey -- private key of the user, should be managed by wallet provider
 	// - requestSenderKey -- private key of the gateway app, which will do operation on behalf of the user
 
-	containerOwnerKey, _ := keys.NewPrivateKey()
-	containerOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(containerOwnerKey.PublicKey()))
+	flag.Usage = func() {
+		_, _ = fmt.Fprintf(os.Stderr, usage)
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+	// First obtain client credentials: private key of request owner
+	rawContainerPrivateKey, err := GetCredentialsFromPath(*walletPath, *walletAddr, "password")
+	if err != nil {
+		log.Fatal("can't read credentials:", err)
+	}
+	containerOwnerPrivateKey := keys.PrivateKey{PrivateKey: *rawContainerPrivateKey}
+	containerOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(containerOwnerPrivateKey.PublicKey()))
 
 	requestSenderKey, _ := keys.NewPrivateKey()
 	requestOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(requestSenderKey.PublicKey()))
@@ -39,7 +106,7 @@ func main() {
 
 	containerOwnerClient, _ := client.New(
 		client.WithURIAddress("grpcs://st01.testnet.fs.neo.org:8082", nil),
-		client.WithDefaultPrivateKey(&containerOwnerKey.PrivateKey),
+		client.WithDefaultPrivateKey(&containerOwnerPrivateKey.PrivateKey),
 		client.WithNeoFSErrorParsing(),
 	)
 
@@ -54,7 +121,7 @@ func main() {
 	cnr := container.New(
 		container.WithPolicy(containerPolicy),
 		container.WithOwnerID(containerOwner),
-		container.WithCustomBasicACL(0x0FFFCFFF),
+		container.WithCustomBasicACL(acl.EACLPublicBasicRule),
 	)
 
 	var prmContainerPut client.PrmContainerPut
@@ -109,12 +176,12 @@ func main() {
 	v2Bearer := bearer.ToV2()
 	binaryData, _ := v2Bearer.GetBody().StableMarshal(nil)
 	h := sha512.Sum512(binaryData)
-	x, y, err := ecdsa.Sign(rand.Reader, &containerOwnerKey.PrivateKey, h[:])
+	x, y, err := ecdsa.Sign(rand.Reader, &containerOwnerPrivateKey.PrivateKey, h[:])
 	if err != nil {
 		panic(err)
 	}
 	signatureData := elliptic.Marshal(elliptic.P256(), x, y)
-	containerOwnerPublicKeyBytes := containerOwnerKey.PublicKey().Bytes()
+	containerOwnerPublicKeyBytes := containerOwnerPrivateKey.PublicKey().Bytes()
 
 	// Step 5. Receive signature and public key, set it to bearer token
 	// Set signature of the bearer token by parsing it toV2 and back to the
