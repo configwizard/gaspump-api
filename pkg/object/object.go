@@ -112,7 +112,10 @@ func GetObjectMetaData(ctx context.Context, cli *client.Client, objectID oid.ID,
 // GetObject does pecisely that. Returns bytes
 // Todo: https://stackoverflow.com/a/56505353/1414721
 // for progress bar
-func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerToken *token.BearerToken, sessionToken *session.Token, writer io.Writer) (*object.Object, error){
+func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerToken *token.BearerToken, sessionToken *session.Token, writer *io.Writer) (*object.Object, error){
+	if writer == nil {
+		return nil, errors.New("no writer provided")
+	}
 	dstObject := &object.Object{}
 	getParms := client.PrmObjectGet{}
 	getParms.ByID(objectID)
@@ -138,7 +141,7 @@ func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerT
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if _, writerErr := writer.Write(buf); writerErr != nil {
+		if _, writerErr := (*writer).Write(buf); writerErr != nil {
 			return nil, errors.New("error writing to buffer: " + writerErr.Error())
 		}
 	}

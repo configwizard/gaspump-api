@@ -25,6 +25,7 @@ var (
 	walletPath = flag.String("wallets", "", "path to JSON wallets file")
 	walletAddr = flag.String("address", "", "wallets address [optional]")
 	createWallet = flag.Bool("create", false, "create a wallets")
+	password = flag.String("password", "", "wallet password")
 )
 
 //epoch can be useful if you want to calculate expiry time for an object, for instance
@@ -38,7 +39,7 @@ func main() {
 	ctx := context.Background()
 
 	if *createWallet {
-		secureWallet, err := wallet.GenerateNewSecureWallet(*walletPath, "some account label", "password")
+		secureWallet, err := wallet.GenerateNewSecureWallet(*walletPath, "some account label", *password)
 		if err != nil {
 			log.Fatal("error generating wallets", err)
 		}
@@ -49,7 +50,7 @@ func main() {
 	}
 
 	// First obtain client credentials: private key of request owner
-	key, err := wallet.GetCredentialsFromPath(*walletPath, *walletAddr, "password")
+	key, err := wallet.GetCredentialsFromPath(*walletPath, *walletAddr, *password)
 	if err != nil {
 		log.Fatal("can't read credentials:", err)
 	}

@@ -27,6 +27,7 @@ var (
 	walletPath = flag.String("wallets", "./pkg/examples/sample_wallets/wallet.json", "path to JSON wallets file")
 	walletAddr = flag.String("address", "", "wallets address [optional]")
 	createWallet = flag.Bool("create", false, "create a wallets")
+	password = flag.String("password", "", "wallet password")
 )
 
 func main() {
@@ -44,7 +45,7 @@ func main() {
 	ctx := context.Background()
 
 	if *createWallet {
-		secureWallet, err := wallet.GenerateNewSecureWallet(*walletPath, "some account label", "password")
+		secureWallet, err := wallet.GenerateNewSecureWallet(*walletPath, "some account label", *password)
 		if err != nil {
 			log.Fatal("error generating wallets", err)
 		}
@@ -63,7 +64,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	acc, err := wallet.UnlockWallet(*walletPath, "", "password")
+	acc, err := wallet.UnlockWallet(*walletPath, "", *password)
 	if err != nil {
 		log.Fatal("can't unlock wallet:", err)
 	}

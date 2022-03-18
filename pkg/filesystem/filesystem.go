@@ -43,12 +43,11 @@ func PopulateContainerList(ctx context.Context, cli *client.Client, containerID 
 }
 
 // GenerateFileSystemFromContainer wraps the output of GenerateObjectStruct in a container element
-func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, containerID cid.ID, bearerToken token.BearerToken, sessionToken session.Token) Element {
+func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, containerID cid.ID, bearerToken *token.BearerToken, sessionToken *session.Token) Element {
 	var filters = obj.SearchFilters{}
 	filters.AddRootFilter()
 	cont := PopulateContainerList(ctx, cli, containerID)
-	//list the contents:
-	//s, err := client2.CreateSession(client2.DEFAULT_EXPIRATION, ctx, cli, key)
+
 	objs, err := object.QueryObjects(ctx, cli, containerID, filters, bearerToken, sessionToken)
 	if err != nil {
 		cont.Errors = append(cont.Errors, err)
@@ -58,7 +57,7 @@ func GenerateFileSystemFromContainer(ctx context.Context, cli *client.Client, co
 }
 
 //GenerateObjectStruct returns an array of elements containing all the objects owned by the contianer ID
-func GenerateObjectStruct(ctx context.Context, cli *client.Client, objs []oid.ID, containerID cid.ID, b token.BearerToken, s session.Token) (uint64, []Element){
+func GenerateObjectStruct(ctx context.Context, cli *client.Client, objs []oid.ID, containerID cid.ID, b *token.BearerToken, s *session.Token) (uint64, []Element){
 	var newObjs []Element
 	size := uint64(0)
 	for _, o := range objs {
@@ -89,7 +88,7 @@ func GenerateObjectStruct(ctx context.Context, cli *client.Client, objs []oid.ID
 }
 
 //GenerateFileSystem returns an array of every object in every container the wallet key owns
-func GenerateFileSystem(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, bearerToken token.BearerToken, sessionToken session.Token) ([]Element, error){
+func GenerateFileSystem(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, bearerToken *token.BearerToken, sessionToken *session.Token) ([]Element, error){
 	var fileSystem []Element
 	containerIds, err := container.List(ctx, cli, key)
 	if err != nil {

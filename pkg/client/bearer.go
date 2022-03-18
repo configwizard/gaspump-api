@@ -1,10 +1,8 @@
 package client
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
@@ -48,19 +46,12 @@ func ExampleBearerToken(duration uint64, containerID *cid.ID, tokenReceiver *own
 	err := bt.SignToken(containerOwnerKey)
 	return bt, err
 }
-func NewBearerToken(ctx context.Context, cli *client.Client, tokenReceiver *owner.ID, duration int64, eaclTable *eacl.Table, containerOwnerKey *ecdsa.PrivateKey) (*token.BearerToken, error){
+func NewBearerToken(tokenReceiver *owner.ID, expire uint64, eaclTable *eacl.Table, containerOwnerKey *ecdsa.PrivateKey) (*token.BearerToken, error){
 	btoken :=  token.NewBearerToken()
-	info, err := GetNetworkInfo(ctx, cli)
-	if err != nil {
-		return btoken, err
-	}
-
-	lt := new(acl.TokenLifetime)
-	lt.SetExp(CalculateEpochsForTime(info.CurrentEpoch(), duration, info.MsPerBlock())) //set the token lifetime.
-	btoken.SetLifetime(100, 10, 1)
+	btoken.SetLifetime(expire, 0, 0)
 	btoken.SetOwner(tokenReceiver)
 	btoken.SetEACLTable(eaclTable)
-	err = btoken.SignToken(containerOwnerKey)
+	err := btoken.SignToken(containerOwnerKey)
 	return btoken, err
 }
 func MarshalBearerToken(btoken token.BearerToken) ([]byte, error) {

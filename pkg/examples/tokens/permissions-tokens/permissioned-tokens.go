@@ -30,6 +30,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
+
+	eacl2 "github.com/configwizard/gaspump-api/pkg/eacl"
 )
 const usage = `Example
 
@@ -42,6 +44,7 @@ var (
 	walletAddr = flag.String("address", "", "wallets address [optional]")
 	createWallet = flag.Bool("create", false, "create a wallets")
 	useBearerToken = flag.Bool("bearer", false, "use a bearer token")
+	password = flag.String("password", "", "wallet password")
 )
 
 // getKeyFromWallet fetches private key from neo-go wallets structure
@@ -92,7 +95,7 @@ func main() {
 	}
 	flag.Parse()
 	// First obtain client credentials: private key of request owner
-	rawContainerPrivateKey, err := GetCredentialsFromPath(*walletPath, *walletAddr, "password")
+	rawContainerPrivateKey, err := GetCredentialsFromPath(*walletPath, *walletAddr, *password)
 	if err != nil {
 		log.Fatal("can't read credentials:", err)
 	}
@@ -140,8 +143,9 @@ func main() {
 		return err == nil
 	})
 
+	fmt.Println("container ID", containerID.String())
 	// Step 2: set restrictive extended ACL
-	table := objectPutDenyOthersEACL(containerID, nil)
+	table := eacl2.PutAllowDenyOthersEACL(containerID, nil)//objectPutDenyOthersEACL(containerID, nil)
 	var prmContainerSetEACL client.PrmContainerSetEACL
 	prmContainerSetEACL.SetTable(table)
 
@@ -166,7 +170,7 @@ func main() {
 	table = objectPutDenyOthersEACL(containerID, requestSenderKey.PublicKey())
 
 	bearer := token.NewBearerToken()
-	bearer.SetLifetime(1000, 0, 0)
+	bearer.SetLifetime(getHelperTokenExpiry(ctx, containerOwnerClient), 0, 0)
 	bearer.SetEACLTable(&table)
 	bearer.SetOwner(requestOwner)
 
@@ -219,12 +223,12 @@ func objectPutDenyOthersEACL(containerID *cid.ID, allowedPubKey *keys.PublicKey)
 		target := eacl.NewTarget()
 		target.SetBinaryKeys([][]byte{allowedPubKey.Bytes()})
 
-		denyPutRecord := eacl.NewRecord()
-		denyPutRecord.SetOperation(eacl.OperationPut)
-		denyPutRecord.SetAction(eacl.ActionAllow)
-		denyPutRecord.SetTargets(target)
+		allowPutRecord := eacl.NewRecord()
+		allowPutRecord.SetOperation(eacl.OperationPut)
+		allowPutRecord.SetAction(eacl.ActionAllow)
+		allowPutRecord.SetTargets(target)
 
-		table.AddRecord(denyPutRecord)
+		table.AddRecord(allowPutRecord)
 	}
 
 	target := eacl.NewTarget()
@@ -240,6 +244,15 @@ func objectPutDenyOthersEACL(containerID *cid.ID, allowedPubKey *keys.PublicKey)
 	return *table
 }
 
+func getHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
+	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
+	if err != nil {
+		panic(err)
+	}
+
+	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)
+	return expire
+}
 func await30Seconds(f func() bool) {
 	for i := 1; i <= 30; i++ {
 		if f() {
@@ -252,8 +265,9 @@ func await30Seconds(f func() bool) {
 }
 
 func objectSessionToken(ctx context.Context, cli *client.Client, owner *owner.ID, containerID *cid.ID, key *ecdsa.PrivateKey) *session.Token {
+	expiry := getHelperTokenExpiry(ctx, cli)
 	var prmSessionCreate client.PrmSessionCreate
-	prmSessionCreate.SetExp(1000)
+	prmSessionCreate.SetExp(expiry)
 
 	res, err := cli.SessionCreate(ctx, prmSessionCreate)
 	if err != nil {
@@ -270,7 +284,7 @@ func objectSessionToken(ctx context.Context, cli *client.Client, owner *owner.ID
 	stoken := session.NewToken()
 	stoken.SetSessionKey(res.PublicKey())
 	stoken.SetID(res.ID())
-	stoken.SetExp(1000)
+	stoken.SetExp(expiry)
 	stoken.SetOwnerID(owner)
 	stoken.SetContext(objectCtx)
 

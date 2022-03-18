@@ -3,9 +3,39 @@ package eacl
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
+
+func PutAllowDenyOthersEACL(containerID *cid.ID, allowedPubKey *keys.PublicKey) eacl.Table {
+	table := eacl.NewTable()
+	table.SetCID(containerID)
+
+	if allowedPubKey != nil {
+		target := eacl.NewTarget()
+		target.SetBinaryKeys([][]byte{allowedPubKey.Bytes()})
+
+		allowPutRecord := eacl.NewRecord()
+		allowPutRecord.SetOperation(eacl.OperationPut)
+		allowPutRecord.SetAction(eacl.ActionAllow)
+		allowPutRecord.SetTargets(target)
+
+		table.AddRecord(allowPutRecord)
+	}
+
+	target := eacl.NewTarget()
+	target.SetRole(eacl.RoleOthers)
+
+	denyPutRecord := eacl.NewRecord()
+	denyPutRecord.SetOperation(eacl.OperationPut)
+	denyPutRecord.SetAction(eacl.ActionDeny)
+	denyPutRecord.SetTargets(target)
+
+	table.AddRecord(denyPutRecord)
+
+	return *table
+}
 
 //AllowOthersReadOnly from https://github.com/nspcc-dev/neofs-s3-gw/blob/fdc07b8dc15272e2aabcbd7bb8c19e435c94e392/authmate/authmate.go#L358
 func AllowKeyPutRead(cid *cid.ID, toWhom *eacl.Target) (*eacl.Table, error) {

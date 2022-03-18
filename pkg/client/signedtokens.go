@@ -32,12 +32,8 @@ func GenerateUnsignedSessionToken(ctx context.Context, cli *client.Client, durat
 	st.SetOwnerID(id)
 	st.SetID(sessionResponse.ID())
 	st.SetSessionKey(sessionResponse.PublicKey())
-	info, err := GetNetworkInfo(ctx, cli)
-	if err != nil {
-		return session2.SessionToken{}, []byte{}, err
-	}
 	lt := new(acl.TokenLifetime)
-	lt.SetExp(CalculateEpochsForTime(info.CurrentEpoch(), duration, info.MsPerBlock())) //set the token lifetime
+	lt.SetExp(CalculateEpochsForTime(ctx, cli, 60 * 60)) //set the token lifetime
 	st.SetIat(lt.GetIat())
 	st.SetNbf(lt.GetNbf())
 	st.SetExp(lt.GetExp())
@@ -53,12 +49,8 @@ func GenerateUnsignedBearerToken(ctx context.Context, cli *client.Client, table 
 	if err != nil {
 		return acl.BearerToken{}, []byte{}, err
 	}
-	info, err := GetNetworkInfo(ctx, cli)
-	if err != nil {
-		return acl.BearerToken{}, []byte{}, err
-	}
 	lt := new(acl.TokenLifetime)
-	lt.SetExp(CalculateEpochsForTime(info.CurrentEpoch(), duration, info.MsPerBlock())) //set the token lifetime
+	lt.SetExp(CalculateEpochsForTime(ctx, cli, 60 * 60)) //set the token lifetime
 
 	bearerToken := token.NewBearerToken()
 	bearerToken.SetEACLTable(table)

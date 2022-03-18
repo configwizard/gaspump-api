@@ -25,7 +25,9 @@ password is password
 var (
 	walletPath = flag.String("wallets", "", "path to JSON wallets file")
 	walletAddr = flag.String("address", "", "wallets address [optional]")
+	recipient = flag.String("recipient", "NadZ8YfvkddivcFFkztZgfwxZyKf1acpRF", "wallet recipient (default NeoFS testnet")
 	createWallet = flag.Bool("create", false, "create a wallets")
+	password = flag.String("password", "", "wallet password")
 )
 
 func main() {
@@ -38,7 +40,7 @@ func main() {
 	ctx := context.Background()
 
 	if *createWallet {
-		secureWallet, err := wallet.GenerateNewSecureWallet(*walletPath, "some account label", "password")
+		secureWallet, err := wallet.GenerateNewSecureWallet(*walletPath, "some account label", *password)
 		if err != nil {
 			log.Fatal("error generating wallets", err)
 		}
@@ -57,7 +59,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	w, err := wallet.UnlockWallet(*walletPath, "", "password")
+	w, err := wallet.UnlockWallet(*walletPath, "", *password)
 	if err != nil {
 		log.Fatal("can't unlock wallet:", err)
 	}
@@ -66,8 +68,8 @@ func main() {
 		log.Fatal(err)
 	}
 	//send 1 GAS (precision 8) to NeoFS wallet
-	neoFSWallet := "NadZ8YfvkddivcFFkztZgfwxZyKf1acpRF"
-	token, err := wallet.TransferToken(w, 1_00_000_000, neoFSWallet, gasToken, wallet.RPC_TESTNET)
+	//neoFSWallet := "NadZ8YfvkddivcFFkztZgfwxZyKf1acpRF"
+	token, err := wallet.TransferToken(w, 1_00_000_000, *recipient, gasToken, wallet.RPC_TESTNET)
 	if err != nil {
 		log.Fatal("can't transfer token:", err)
 	}
