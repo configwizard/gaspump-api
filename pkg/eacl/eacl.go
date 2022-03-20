@@ -8,9 +8,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
 
-func PutAllowDenyOthersEACL(containerID *cid.ID, allowedPubKey *keys.PublicKey) eacl.Table {
+func PutAllowDenyOthersEACL(containerID cid.ID, allowedPubKey *keys.PublicKey) eacl.Table {
 	table := eacl.NewTable()
-	table.SetCID(containerID)
+	table.SetCID(&containerID)
 
 	if allowedPubKey != nil {
 		target := eacl.NewTarget()

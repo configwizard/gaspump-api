@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-
 	"github.com/configwizard/gaspump-api/pkg/wallet"
 
 	"github.com/nspcc-dev/neofs-sdk-go/acl"
@@ -33,7 +32,7 @@ func Create(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, plac
 	if err != nil {
 		return nil, fmt.Errorf("can't parse placement policy: %w", err)
 	}
-	ownerID, err := wallet.OwnerIDFromPrivateKey(key)
+	ownerID, err := wallet.OwnerIDFromPublicKey(&key.PublicKey)
 	// Step 1: create container
 	//containerPolicy, _ := policy.Parse("REP 2")
 	cnr := container.New(
@@ -41,6 +40,7 @@ func Create(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, plac
 		container.WithOwnerID(ownerID),
 		container.WithCustomBasicACL(customACL),
 	)
+	//cnr.SetSessionToken()
 	cnr.SetAttributes(attributes)
 
 	var prmContainerPut client.PrmContainerPut

@@ -1,37 +1,29 @@
 package main
 
 import (
-	//"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	//"github.com/cheggaaa/pb"
 	client2 "github.com/configwizard/gaspump-api/pkg/client"
 	eacl2 "github.com/configwizard/gaspump-api/pkg/eacl"
 	"github.com/configwizard/gaspump-api/pkg/object"
 	"github.com/configwizard/gaspump-api/pkg/wallet"
 	"github.com/machinebox/progress"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
-	object2 "github.com/nspcc-dev/neofs-sdk-go/object"
+	obj "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"sync"
-
-	//"github.com/cheggaaa/pb"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
-	"strconv"
-	//"sync"
+	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -47,6 +39,7 @@ var (
 	createWallet = flag.Bool("create", false, "create a wallets")
 	useBearerToken = flag.Bool("bearer", false, "use a bearer token")
 	containerID = flag.String("container", "", "specify the container")
+	objectID = flag.String("object", "", "specify the object")
 	password = flag.String("password", "", "wallet password")
 )
 
@@ -58,9 +51,7 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
-	if *containerID == "" {
-		log.Fatal("need a container")
-	}
+
 	if *createWallet {
 		secureWallet, err := wallet.GenerateNewSecureWallet(*walletPath, "some account label", *password)
 		if err != nil {
@@ -72,6 +63,12 @@ func main() {
 		os.Exit(0)
 	}
 
+	if *containerID == "" {
+		log.Fatal("need a container")
+	}
+	if *objectID == "" {
+		log.Fatal("need an object")
+	}
 	// First obtain client credentials: private key of request owner
 	key, err := wallet.GetCredentialsFromPath(*walletPath, *walletAddr, *password)
 	if err != nil {
@@ -97,7 +94,7 @@ func main() {
 	//pointers so we can have nil tokens
 	var sessionToken = &session.Token{}
 	var bearerToken = &token.BearerToken{}
-	log.Println("uploading to container", containerID)
+	log.Println("using container", containerID)
 	if *useBearerToken {
 		log.Println("using bearer token...")
 		sessionToken = nil
@@ -107,13 +104,12 @@ func main() {
 		specifiedTargetRole := eacl.NewTarget()
 		eacl.SetTargetECDSAKeys(specifiedTargetRole, &key.PublicKey)
 
-		//info, err := client2.GetNetworkInfo(ctx, cli)
-		//if err != nil {
-		//	log.Fatal("can't get network info:", err)
-		//}
-		table := eacl2.PutAllowDenyOthersEACL(cntId, (*keys.PublicKey)(&key.PublicKey))
-		//bearerToken, err = client2.ExampleBearerToken(30, cntId, ownerID, info.CurrentEpoch(), specifiedTargetRole, eaclTable, key)
-		bearerToken, err = client2.NewBearerToken(ownerID, getHelperTokenExpiry(ctx, cli), &table, key)
+		eaclTable, err := eacl2.AllowKeyPutRead(&cntId, specifiedTargetRole)
+		if err != nil {
+			log.Fatal("cant create eacl table:", err)
+		}
+		//(tokenReceiver *owner.ID, expire uint64, eaclTable *eacl.Table, containerOwnerKey *ecdsa.PrivateKey) (*token.BearerToken, error){
+		bearerToken, err = client2.NewBearerToken(ownerID, client2.GetHelperTokenExpiry(ctx, cli, 10), eaclTable, key)
 
 		marshalBearerToken, err := client2.MarshalBearerToken(*bearerToken)
 		if err != nil {
@@ -126,78 +122,49 @@ func main() {
 	} else {
 		log.Println("using session token...")
 		bearerToken = nil
-		sessionToken, err = client2.CreateSession(ctx, cli, client2.GetHelperTokenExpiry(ctx, cli, 10), key)
+		sessionToken, err = client2.CreateSessionWithObjectGetContext(ctx, cli, ownerID, &cntId, client2.GetHelperTokenExpiry(ctx, cli, 10), key)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-	filepath := "./upload.gif"
-	var attributes []*object2.Attribute
-	objectID, err := uploadObject(ctx, cli, ownerID, cntId, filepath, attributes, bearerToken, sessionToken)
+	objID := oid.ID{}
+	objID.Parse(*objectID)
+	head, err := object.GetObjectMetaData(ctx, cli, objID, cntId, bearerToken, sessionToken)
 	if err != nil {
-		log.Fatal("upload failed ", err)
+		log.Fatal(err)
 	}
-	filter := object2.SearchFilters{}
-	filter.AddRootFilter()
-	fmt.Printf("Object %s has been persisted in container %s\nview it at https://http.testnet.fs.neo.org/%s/%s\r\n", objectID, *containerID, *containerID, objectID)
-	_, err = object.QueryObjects(ctx, cli, cntId, filter, bearerToken, sessionToken)
-	if err != nil {
-		log.Fatal("listing failed ", err)
+	filename := "tmp.tmp"
+	for _, v := range head.Attributes() {
+		if v.Key() == obj.AttributeFileName {
+			filename = v.Value()
+			break
+		}
 	}
-}
-func getHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
-	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
-	if err != nil {
-		panic(err)
-	}
-
-	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)
-	return expire
-}
-func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, containerID cid.ID, filepath string, attributes []*object2.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token) (string, error) {
-	f, err := os.Open(filepath)
+	fmt.Printf("payload size `%+v\r\n", head.PayloadSize())
+	f, err := os.Create(filepath.Join("/Users/alex.walker", filename))
 	defer f.Close()
 	if err != nil {
-		return "", err
+		log.Fatal(err)
 	}
-
-	fileStats, err := f.Stat()
-	if err != nil {
-		return "", errors.New("could not retrieve stats" + err.Error())
-	}
-
-	//var p *pb.ProgressBar
-	//p = pb.New64(fileStats.Size())
-	//p.Output = os.Stdout//cmd.OutOrStdout()
-	//p.Start()
-
-	//read in the data here. Note large files will hang and have to be held in memory (consider a spinner/io.Pipe)
-	//reader := bufio.NewReader(f)
-	//var ioReader io.Reader
-	//ioReader = reader
-	c := progress.NewReader(f)
+	c := progress.NewWriter(f)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		progressChan := progress.NewTicker(ctx, c, fileStats.Size(), 50*time.Millisecond)
+		progressChan := progress.NewTicker(ctx, c, int64(head.PayloadSize()), 50*time.Millisecond)
+
 		for p := range progressChan {
 			print("time")
 			fmt.Printf("\r%v remaining...", p.Remaining().Round(250*time.Millisecond))
 		}
 	}()
-	RR := (io.Reader)(c)
-	//set your attributes
-	timeStampAttr := new(object2.Attribute)
-	timeStampAttr.SetKey(object2.AttributeTimestamp)
-	timeStampAttr.SetValue(strconv.FormatInt(time.Now().Unix(), 10))
-
-	fileNameAttr := new(object2.Attribute)
-	fileNameAttr.SetKey(object2.AttributeFileName)
-	fileNameAttr.SetValue(path.Base(filepath))
-	attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
-
-	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attributes, bearerToken, sessionToken, &RR)
+	WW := (io.Writer)(c)
+	res, err := object.GetObject(ctx, cli, objID, cntId, bearerToken, sessionToken, &WW)
+	if err != nil {
+		log.Fatal("listing failed ", err)
+	}
 	wg.Wait()
-	return id.String(), err
+	fmt.Printf("download response %+v\r\n", res)
+
 }
+//https://github.com/fyrchik/neofs-node/blob/089f8912d277edb14b04f1d96274b792a22ed060/cmd/neofs-cli/modules/object.go#L305

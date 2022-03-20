@@ -3,6 +3,7 @@ package object
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -51,10 +52,11 @@ func ExpireObjectByEpochAttribute(epoch int) *object.Attribute {
 }
 // UploadObject uploads from an io.Reader.
 // Todo: pipe for progress https://stackoverflow.com/a/56505353/1414721
-func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, ownerID *owner.ID, attr []*object.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token, reader *io.Reader) (oid.ID, error) {
+// https://github.com/fyrchik/neofs-node/blob/089f8912d277edb14b04f1d96274b792a22ed060/cmd/neofs-cli/modules/object.go#L305
+func UploadObject(ctx context.Context, cli *client.Client, containerID cid.ID, ownerID *owner.ID, attr []*object.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token, reader *io.Reader) (oid.ID, error) {
 	var objectID oid.ID
 	o := object.New()
-	o.SetContainerID(containerID)
+	o.SetContainerID(&containerID)
 	o.SetOwnerID(ownerID)
 	o.SetAttributes(attr...)
 
@@ -65,7 +67,6 @@ func UploadObject(ctx context.Context, cli *client.Client, containerID *cid.ID, 
 	if bearerToken != nil {
 		objWriter.WithBearerToken(*bearerToken)
 	}
-
 	if !objWriter.WriteHeader(*o) {
 		return objectID, errors.New("could not write object header")
 	}
@@ -112,13 +113,14 @@ func GetObjectMetaData(ctx context.Context, cli *client.Client, objectID oid.ID,
 // GetObject does pecisely that. Returns bytes
 // Todo: https://stackoverflow.com/a/56505353/1414721
 // for progress bar
-func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerToken *token.BearerToken, sessionToken *session.Token, writer *io.Writer) (*object.Object, error){
+func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, containerID cid.ID, bearerToken *token.BearerToken, sessionToken *session.Token, writer *io.Writer) (*object.Object, error){
 	if writer == nil {
 		return nil, errors.New("no writer provided")
 	}
 	dstObject := &object.Object{}
 	getParms := client.PrmObjectGet{}
 	getParms.ByID(objectID)
+	getParms.FromContainer(containerID)
 	if sessionToken != nil {
 		getParms.WithinSession(*sessionToken)
 	}
@@ -133,16 +135,18 @@ func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, bearerT
 		_, err = objReader.Close()
 		return dstObject, err
 	}
-	buf := make([]byte, 1024*1024) // 1 MiB
+	buf := make([]byte, 1024) // 1 MiB
 	for {
-		_, err := objReader.Read(buf)
-
+		if _, writerErr := (*writer).Write(buf); writerErr != nil {
+			return nil, errors.New("error writing to buffer: " + writerErr.Error())
+		}
+		if _, ok := objReader.ReadChunk(buf); !ok {
+			break
+		}
+		fmt.Printf("* %v\r\n", string(buf))
 		// get total size from object header and update progress bar based on n bytes received
 		if errors.Is(err, io.EOF) {
 			break
-		}
-		if _, writerErr := (*writer).Write(buf); writerErr != nil {
-			return nil, errors.New("error writing to buffer: " + writerErr.Error())
 		}
 	}
 	return dstObject, err //return pointer to avoid passing around large payloads?

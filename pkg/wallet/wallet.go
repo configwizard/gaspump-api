@@ -273,6 +273,7 @@ func CreateTransactionFromFunctionCall(contractScriptHash string, operation stri
 	}
 	//and when you are ready you can invoke it
 	rawTransaction, err := cli.SendRawTransaction(tx)
+
 	if err != nil {
 		return util.Uint256{}, nil, fmt.Errorf("error sending raw transaction %w\r\n", err)
 	}

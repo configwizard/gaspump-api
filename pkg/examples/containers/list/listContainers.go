@@ -55,7 +55,7 @@ func main() {
 	}
 	w := wallet.GetWalletFromPrivateKey(key)
 	log.Println("using account ", w.Address)
-	cli, err := client2.NewClient(key, client2.TESTNET)
+	cli, err := client2.NewClient(key, "grpcs://st01.testnet.fs.neo.org:8082")
 	if err != nil {
 		log.Fatal("can't create NeoFS client:", err)
 	}
@@ -66,6 +66,7 @@ func main() {
 		log.Fatal("could not list containers", err)
 	}
 
+	fmt.Println("containers", len(list))
 	for _, v := range list {
 		fmt.Println("id ", v.String())
 	}
