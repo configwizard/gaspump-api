@@ -11,7 +11,7 @@ require (
 )
 
 require (
-	github.com/cheggaaa/pb v1.0.29
+	github.com/go-chi/chi/v5 v5.0.7
 	github.com/machinebox/progress v0.2.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.11.2-0.20220302134950-d065453bd0a7
 )
@@ -29,7 +29,6 @@ require (
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/matryer/is v1.4.0 // indirect
-	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20220111165707-25110be27d22 // indirect

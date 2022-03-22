@@ -129,7 +129,7 @@ func gatewayCreateToken(ctx context.Context, cli *client.Client, cid *cid.ID, ke
 	return client2.GenerateUnsignedBearerToken(ctx, cli, eaclTable, duration, key)
 }
 
-func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PublicKey, containerID *cid.ID, filepath string, attr []*obj.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token) (string, error) {
+func uploadObject(ctx context.Context, cli *client.Client, key *ecdsa.PublicKey, containerID cid.ID, filepath string, attr []*obj.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token) (string, error) {
 	f, err := os.Open(filepath)
 	defer f.Close()
 	if err != nil {

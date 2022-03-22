@@ -1,0 +1,50 @@
+<html>
+<head>
+    <script src="https://unpkg.com/@cityofzion/neon-js@next"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha512/0.8.0/sha512.min.js" integrity="sha512-KUrAWA1oxsWKHBaA2mlZyRuR8zzzHHYgpDfkfPrT3FhlZ4YdXbXyE89VHI6WmWradSHtuZjLyLAMP2F7IWK4JQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<body></body>
+<script>
+    function _base64ToArrayBuffer(base64) {
+        var binary_string = window.atob(base64);
+        var len = binary_string.length;
+        var bytes = new Uint8Array(len);
+        for (var i = 0; i < len; i++) {
+            bytes[i] = binary_string.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+    function toHexString(byteArray) {
+        return Array.from(byteArray, function(byte) {
+            return ('0' + (byte & 0xFF).toString(16)).slice(-2);
+        }).join('')
+    }
+    function neofsSign1(msg, account) {
+        console.log("msg ", msg)
+        const decoededMessage = _base64ToArrayBuffer(msg)
+        console.table("decoededMessage", decoededMessage)
+        // console.log("decoededMessage as string", toHexString(decoededMessage))
+        // console.log("decoeded message", decoededMessage)
+        console.log("sha 512 digest ", sha512.digest(decoededMessage))
+        // console.log("as string", toHexString(sha512.digest(decoededMessage)))
+        const curve = Neon.u.getCurve(Neon.u.EllipticCurvePreset.SECP256R1);
+        const sig = curve.sign(sha512.digest(decoededMessage), account.privateKey);
+        console.log("verify ", curve.verify(sha512.digest(decoededMessage), sig, Neon.wallet.getPublicKeyFromPrivateKey(account.privateKey)))
+        const signatureBytes = JSON.stringify(sig.toString())
+        console.log("bytes signature ", signatureBytes)
+        return sig;
+    }
+    function decryptAccountData(privateKey) {
+        const myAccount = new Neon.wallet.Account(
+            privateKey
+        );
+        console.log("privateKey", myAccount.privateKey)
+        console.log("publickey", Neon.wallet.getPublicKeyFromPrivateKey(myAccount.privateKey));
+        console.log("WIF", myAccount.WIF);
+        return myAccount
+    }
+
+    const account = decryptAccountData("1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190")
+    console.log(neofsSign1("Cl8KBAgCEAsSIgog2o7q6LYowJau0IStqpK7KdMDc7a1x+Lr+LkPUvSCMzUaKQgDEAEiIxIhAvLHs6eoMwB1SpNsJFXC8et/XcCDnXNn6aakUC9BGq61GggIAxACIgIIAxIbChk1wCscYdTTROMkIzHE76olVgEs0Xdp3/biGgMImSQ=", account))
+</script>
+</html>
+

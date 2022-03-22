@@ -71,7 +71,7 @@ func StringToUint160(s string) (u util.Uint160, err error) {
 }
 
 func BytesFromPublicKey(pub *ecdsa.PublicKey) []byte {
-	    if pub == nil || pub.X == nil || pub.Y == nil {
+	if pub == nil || pub.X == nil || pub.Y == nil {
 	        return nil
     }
     publicKeyByteArray := elliptic.Marshal(pub, pub.X, pub.Y)

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -24,7 +23,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
@@ -95,11 +93,12 @@ func main() {
 	}
 	flag.Parse()
 	// First obtain client credentials: private key of request owner
-	rawContainerPrivateKey, err := GetCredentialsFromPath(*walletPath, *walletAddr, *password)
+	// First obtain client credentials: private key of request owner
+	rawContainerPrivateKey, err := keys.NewPrivateKeyFromHex("1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190")
 	if err != nil {
 		log.Fatal("can't read credentials:", err)
 	}
-	containerOwnerPrivateKey := keys.PrivateKey{PrivateKey: *rawContainerPrivateKey}
+	containerOwnerPrivateKey := keys.PrivateKey{PrivateKey: rawContainerPrivateKey.PrivateKey}
 	containerOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(containerOwnerPrivateKey.PublicKey()))
 
 	requestSenderKey, _ := keys.NewPrivateKey()
@@ -113,11 +112,11 @@ func main() {
 		client.WithNeoFSErrorParsing(),
 	)
 
-	requestSenderClient, _ := client.New(
-		client.WithURIAddress("grpcs://st01.testnet.fs.neo.org:8082", nil),
-		client.WithDefaultPrivateKey(&requestSenderKey.PrivateKey),
-		client.WithNeoFSErrorParsing(),
-	)
+		//requestSenderClient, _ := client.New(
+		//	client.WithURIAddress("grpcs://st01.testnet.fs.neo.org:8082", nil),
+		//	client.WithDefaultPrivateKey(&requestSenderKey.PrivateKey),
+		//	client.WithNeoFSErrorParsing(),
+		//)
 
 	// Step 1: create container
 	containerPolicy, _ := policy.Parse("REP 2")
@@ -130,44 +129,46 @@ func main() {
 	var prmContainerPut client.PrmContainerPut
 	prmContainerPut.SetContainer(*cnr)
 
-	cnrResponse, err := containerOwnerClient.ContainerPut(ctx, prmContainerPut)
-	if err != nil {
-		panic(err)
-	}
-	containerID := cnrResponse.ID()
-
-	await30Seconds(func() bool {
-		var prmContainerGet client.PrmContainerGet
-		prmContainerGet.SetContainer(*containerID)
-		_, err = containerOwnerClient.ContainerGet(ctx, prmContainerGet)
-		return err == nil
-	})
-
-	fmt.Println("container ID", containerID.String())
-	// Step 2: set restrictive extended ACL
+	//cnrResponse, err := containerOwnerClient.ContainerPut(ctx, prmContainerPut)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//containerID := cnrResponse.ID()
+	//
+	//await30Seconds(func() bool {
+	//	var prmContainerGet client.PrmContainerGet
+	//	prmContainerGet.SetContainer(*containerID)
+	//	_, err = containerOwnerClient.ContainerGet(ctx, prmContainerGet)
+	//	return err == nil
+	//})
+	//
+	//fmt.Println("container ID", containerID.String())
+	//// Step 2: set restrictive extended ACL
+	containerID := cid.ID{}
+	containerID.Parse("FiAGxgha5YHVpKfQS26ssTdtvx7CL5YyaxJLseXSimvC")
 	table := eacl2.PutAllowDenyOthersEACL(containerID, nil)//objectPutDenyOthersEACL(containerID, nil)
-	var prmContainerSetEACL client.PrmContainerSetEACL
-	prmContainerSetEACL.SetTable(table)
-
-	_, err = containerOwnerClient.ContainerSetEACL(ctx, prmContainerSetEACL)
-	if err != nil {
-		panic("eacl was not set")
-	}
-
-	await30Seconds(func() bool {
-		var prmContainerEACL client.PrmContainerEACL
-		prmContainerEACL.SetContainer(*containerID)
-		r, err := containerOwnerClient.ContainerEACL(ctx, prmContainerEACL)
-		if err != nil {
-			return false
-		}
-		expected, _ := table.Marshal()
-		got, _ := r.Table().Marshal()
-		return bytes.Equal(expected, got)
-	})
+	//var prmContainerSetEACL client.PrmContainerSetEACL
+	//prmContainerSetEACL.SetTable(table)
+	//
+	//_, err = containerOwnerClient.ContainerSetEACL(ctx, prmContainerSetEACL)
+	//if err != nil {
+	//	panic("eacl was not set")
+	//}
+	//
+	//await30Seconds(func() bool {
+	//	var prmContainerEACL client.PrmContainerEACL
+	//	prmContainerEACL.SetContainer(*containerID)
+	//	r, err := containerOwnerClient.ContainerEACL(ctx, prmContainerEACL)
+	//	if err != nil {
+	//		return false
+	//	}
+	//	expected, _ := table.Marshal()
+	//	got, _ := r.Table().Marshal()
+	//	return bytes.Equal(expected, got)
+	//})
 
 	// Step 3. Prepare bearer token to allow PUT request
-	table = objectPutDenyOthersEACL(containerID, requestSenderKey.PublicKey())
+	table = objectPutDenyOthersEACL(&containerID, requestSenderKey.PublicKey())
 
 	bearer := token.NewBearerToken()
 	bearer.SetLifetime(getHelperTokenExpiry(ctx, containerOwnerClient), 0, 0)
@@ -179,12 +180,16 @@ func main() {
 	// Otherwise signer should sign stable marshalled binary message
 	v2Bearer := bearer.ToV2()
 	binaryData, _ := v2Bearer.GetBody().StableMarshal(nil)
+	fmt.Printf("%+v\r\n", binaryData)
 	h := sha512.Sum512(binaryData)
-	x, y, err := ecdsa.Sign(rand.Reader, &containerOwnerPrivateKey.PrivateKey, h[:])
+	r, s, err := ecdsa.Sign(rand.Reader, &containerOwnerPrivateKey.PrivateKey, h[:])
 	if err != nil {
 		panic(err)
 	}
-	signatureData := elliptic.Marshal(elliptic.P256(), x, y)
+	signatureData := elliptic.Marshal(elliptic.P256(), r, s)
+	fmt.Println("r-Val", r.String())
+	fmt.Println("s-Val", s.String())
+	fmt.Println("signature", string(signatureData))
 	containerOwnerPublicKeyBytes := containerOwnerPrivateKey.PublicKey().Bytes()
 
 	// Step 5. Receive signature and public key, set it to bearer token
@@ -196,23 +201,28 @@ func main() {
 
 	v2Bearer.SetSignature(v2signature)
 	bearer = token.NewBearerTokenFromV2(v2Bearer)
-
-	// Step 5. Upload object with new bearer token
-	o := object.New()
-	o.SetContainerID(containerID)
-	o.SetOwnerID(containerOwner)
-
-	stoken := objectSessionToken(ctx, requestSenderClient, requestOwner, containerID, &requestSenderKey.PrivateKey)
-
-	objWriter, err := requestSenderClient.ObjectPutInit(ctx, client.PrmObjectPutInit{})
-	objWriter.WithinSession(*stoken)
-	objWriter.WithBearerToken(*bearer)
-	objWriter.WriteHeader(*o)
-	objWriter.WritePayloadChunk([]byte("Hello World"))
-	_, err = objWriter.Close()
+	newBearer := token.NewBearerTokenFromV2(v2Bearer)
+	err = newBearer.VerifySignature()
 	if err != nil {
-		panic(err)
+		fmt.Println("error verifying signature", err)
+		return
 	}
+	// Step 5. Upload object with new bearer token
+	//o := object.New()
+	//o.SetContainerID(containerID)
+	//o.SetOwnerID(containerOwner)
+	//
+	//stoken := objectSessionToken(ctx, requestSenderClient, requestOwner, containerID, &requestSenderKey.PrivateKey)
+	//
+	//objWriter, err := requestSenderClient.ObjectPutInit(ctx, client.PrmObjectPutInit{})
+	//objWriter.WithinSession(*stoken)
+	//objWriter.WithBearerToken(*bearer)
+	//objWriter.WriteHeader(*o)
+	//objWriter.WritePayloadChunk([]byte("Hello World"))
+	//_, err = objWriter.Close()
+	//if err != nil {
+	//	panic(err)
+	//}
 }
 
 func objectPutDenyOthersEACL(containerID *cid.ID, allowedPubKey *keys.PublicKey) eacl.Table {
