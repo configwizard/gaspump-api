@@ -4,28 +4,23 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/sha512"
-	b64 "encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
 	eacl2 "github.com/configwizard/gaspump-api/pkg/eacl"
+	"github.com/configwizard/gaspump-api/pkg/examples/tokens/simple-share-server/api/objects"
+	"github.com/configwizard/gaspump-api/pkg/examples/tokens/simple-share-server/api/tokens"
 	"github.com/nspcc-dev/neo-go/cli/flags"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
-	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"log"
-	"math/big"
 	"net/http"
 	"os"
 	"time"
@@ -170,15 +165,6 @@ func await30Seconds(f func() bool) {
 	}
 	panic("timeout")
 }
-func getHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
-	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
-	if err != nil {
-		panic(err)
-	}
-
-	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)
-	return expire
-}
 
 func main() {
 
@@ -190,37 +176,38 @@ func main() {
 	}
 	flag.Parse()
 
+	os.Setenv("PRIVATE_KEY", "1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190")
 	// First obtain client credentials: private key of request owner
-	rawContainerPrivateKey, err := keys.NewPrivateKeyFromHex("1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190")
+	apiPrivateKey, err := keys.NewPrivateKeyFromHex(os.Getenv("PRIVATE_KEY"))
 	if err != nil {
 		log.Fatal("can't read credentials:", err)
 	}
 
-	containerOwnerPrivateKey := keys.PrivateKey{PrivateKey: rawContainerPrivateKey.PrivateKey}
-	rawPublicKey, _ := containerOwnerPrivateKey.PublicKey().MarshalJSON()
-	fmt.Println("rawPublicKey ", string(rawPublicKey)) // this is the public key i am using in javascript
-	containerOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(containerOwnerPrivateKey.PublicKey()))
-	containerOwnerClient, err := createClient(containerOwnerPrivateKey)
+	//containerOwnerPrivateKey := keys.PrivateKey{PrivateKey: rawContainerPrivateKey.PrivateKey}
+	//rawPublicKey, _ := containerOwnerPrivateKey.PublicKey().MarshalJSON()
+	//fmt.Println("rawPublicKey ", string(rawPublicKey)) // this is the public key i am using in javascript
+	//apiKeyOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(apiPrivateKey.PublicKey()))
+	apiClient, err := createClient(*apiPrivateKey)
 	if err != nil {
 		log.Fatal("err ", err)
 	}
-	ctx := context.Background()
+	//ctx := context.Background()
 
-	var containerID cid.ID
-	if *cnt == "" {
-		//1. the container owner needs to create a container to work on:
-		containerID, err = createProtectedContainer(ctx, containerOwnerClient, containerOwner)
-		if err != nil {
-			log.Fatal("err ", err)
-		}
-		//2. Now the container owner needs to protect the container from undesirables
-		if err := setRestrictedContainerAccess(ctx, containerOwnerClient, containerID); err != nil {
-			log.Fatal("err ", err)
-		}
-	} else {
-		fmt.Println("parsing", *cnt)
-		containerID.Parse(*cnt)
-	}
+	//var containerID cid.ID
+	//if *cnt == "" {
+	//	//1. the container owner needs to create a container to work on:
+	//	containerID, err = createProtectedContainer(ctx, apiClient, apiKeyOwner)
+	//	if err != nil {
+	//		log.Fatal("err ", err)
+	//	}
+	//	//2. Now the container owner needs to protect the container from undesirables
+	//	if err := setRestrictedContainerAccess(ctx, apiClient, containerID); err != nil {
+	//		log.Fatal("err ", err)
+	//	}
+	//} else {
+	//	fmt.Println("parsing", *cnt)
+	//	containerID.Parse(*cnt)
+	//}
 
 	// the above will have been done by the user, out of band
 	r := chi.NewRouter()
@@ -228,220 +215,29 @@ func main() {
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Welcome to a simple example of sharing access tokens for neoFS"))
 	})
-	var origRString, origString string
-	var origR, origS *big.Int
-	r.Route("/auth/{walletAddress}", func(r chi.Router) {
+
+	r.Route("/api/v1/auth", func(r chi.Router) {
 		r.Use(WalletCtx)
 		//ok so this endpoint is requesting a new bearer token to sign
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			publicKey, ok := ctx.Value("publicKey").(string)
-			fmt.Println("public key received", publicKey)
-			if !ok {
-				fmt.Println("error processing public key")
-				http.Error(w, http.StatusText(422), 422)
-				return
-			}
-			k, err2 := keys.NewPublicKeyFromString(publicKey)
-			if err2 != nil {
-				return
-			}
-
-			pubKeyString, _ := k.MarshalJSON()
-			fmt.Println("received public key ", string(pubKeyString))
-			//    signature.setSign(fromByteArray(u.hexstring2ab('04' + sig.r + sig.s)));
-			if err != nil {
-				fmt.Println("error generating public key ", err)
-				http.Error(w, http.StatusText(422), 422)
-				return
-			}
-			//this should really be the actor using the bearer token
-			requestOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(k))
-			// Step 3. Prepare bearer token to allow PUT request
-			table := eacl2.PutAllowDenyOthersEACL(containerID, k)
-
-			//this client can be the actor's client
-			bearer := token.NewBearerToken()
-			bearer.SetLifetime(getHelperTokenExpiry(ctx, containerOwnerClient), 0, 0)
-			bearer.SetEACLTable(&table)
-			bearer.SetOwner(requestOwner)
-
-			v2Bearer := bearer.ToV2()
-			binaryData, _ := v2Bearer.GetBody().StableMarshal(nil)
-			fmt.Printf("raw %s\r\n", binaryData)
-			fmt.Println("hex")
-			fmt.Println(binaryData)
-			sEnc := b64.StdEncoding.EncodeToString(binaryData)
-
-			fmt.Println("encoding ", sEnc)
-
-			//src := "Cl8KBAgCEAsSIgog2o7q6LYowJau0IStqpK7KdMDc7a1x+Lr+LkPUvSCMzUaKQgDEAEiIxIhAvLHs6eoMwB1SpNsJFXC8et/XcCDnXNn6aakUC9BGq61GggIAxACIgIIAxIbChk1wCscYdTTROMkIzHE76olVgEs0Xdp3/biGgMIliQ="
-			//orig, _ := b64.StdEncoding.DecodeString(src)
-			//fmt.Println("new binary data in hex")
-			//fmt.Println(orig)
-			h := sha512.Sum512(binaryData)
-			origR, origS, err = ecdsa.Sign(rand.Reader, &containerOwnerPrivateKey.PrivateKey, h[:])
-			if err != nil {
-				panic(err)
-			}
-			signatureData := elliptic.Marshal(elliptic.P256(), origR, origS)
-			origRString = origR.String()
-			origString = origS.String()
-			fmt.Println("r-Val", origR.Text(16), origRString)
-			fmt.Println("s-Val", origS.Text(16), origString)
-			fmt.Println("signature", string(signatureData))
-
-			v2signature := new(refs.Signature)
-			v2signature.SetScheme(refs.ECDSA_SHA512)
-			v2signature.SetSign(signatureData)
-			v2signature.SetKey(k.Bytes())
-
-			v2Bearer.SetSignature(v2signature)
-
-
-			newBearer := token.NewBearerTokenFromV2(v2Bearer)
-			err = newBearer.VerifySignature()
-			if err != nil {
-				fmt.Println("error verifying signature", err)
-				http.Error(w, http.StatusText(422), 422)
-				return
-			}
-
-			fmt.Println("sha512.Sum512(binaryData)", h)
-			w.Write([]byte(sEnc))
-		})
-		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			stringSigR, ok := ctx.Value("stringSigR").(string)
-			fmt.Println("stringSigR received", stringSigR)
-			if !ok {
-				fmt.Println("error processing stringSigR")
-				http.Error(w, http.StatusText(422), 422)
-				return
-			}
-			stringSigS, ok := ctx.Value("stringSigS").(string)
-			fmt.Println("stringSigS received", stringSigS)
-			if !ok {
-				fmt.Println("error processing stringSigS")
-				http.Error(w, http.StatusText(422), 422)
-				return
-			}
-			sigR, err := bigIntByteConverter(stringSigR)
-			sigS, err := bigIntByteConverter(stringSigS)
-			fmt.Println(sigR)
-			fmt.Println(sigS)
-			//sigR := new(big.Int)
-			//sigR, ok = sigR.SetString(stringSigR, 16)
-			//if !ok {
-			//	fmt.Println("sigR: error")
-			//	http.Error(w, http.StatusText(422), 422)
-			//	return
-			//}
-			//sigS := new(big.Int)
-			//sigS, ok = sigS.SetString(stringSigS, 16)
-			//if !ok {
-			//	fmt.Println("sigS: error")
-			//	http.Error(w, http.StatusText(422), 422)
-			//	return
-			//}
-			publicKey, ok := ctx.Value("publicKey").(string)
-			fmt.Println("public key received", publicKey)
-			if !ok {
-				fmt.Println("error processing public key")
-				http.Error(w, http.StatusText(422), 422)
-				return
-			}
-			k, err2 := keys.NewPublicKeyFromString(publicKey)
-			if err2 != nil {
-				return
-			}
-
-			pubKeyString, _ := k.MarshalJSON()
-			fmt.Println("received public key ", string(pubKeyString))
-
-
-			//bigIntHandler("82386781848370603388044244735974893154948281702574770963755243513728997714758", "b625441bac5635a40ede52562ddd2c86a7c7353673045e673cb50b8154a2eb46")
-
-			signatureData := elliptic.Marshal(elliptic.P256(), &sigR, &sigS)
-
-			//this should really be the actor using the bearer token
-			requestOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(k))
-			// Step 3. Prepare bearer token to allow PUT request
-			table := eacl2.PutAllowDenyOthersEACL(containerID, k)
-
-			//this client can be the actor's client
-			bearer := token.NewBearerToken()
-			bearer.SetLifetime(getHelperTokenExpiry(ctx, containerOwnerClient), 0, 0)
-			bearer.SetEACLTable(&table)
-			bearer.SetOwner(requestOwner)
-
-			v2Bearer := bearer.ToV2()
-			v2signature := new(refs.Signature)
-			v2signature.SetScheme(refs.ECDSA_SHA512)
-			v2signature.SetSign(signatureData)
-			v2signature.SetKey(k.Bytes())
-
-			v2Bearer.SetSignature(v2signature)
-			newBearer := token.NewBearerTokenFromV2(v2Bearer)
-
-			err = newBearer.VerifySignature()
-			if err != nil {
-				fmt.Println("error verifying signature", err)
-				http.Error(w, http.StatusText(422), 422)
-				return
-			}
-
-			marshal, err := newBearer.MarshalJSON()
-			if err != nil {
-				return
-			}
-			sEnc := b64.StdEncoding.EncodeToString(marshal)
-			w.Write([]byte(sEnc))
-		})
+		r.Get("/{containerId}", tokens.UnsignedBearerToken(apiClient))
 	})
 
+	r.Route("/api/v1/object", func(r chi.Router) {
+		r.Use(WalletCtx)
+		r.Get("/{containerId}/{objectId}", objects.GetObjectHead(apiClient, &apiPrivateKey.PrivateKey))
+	})
 	http.ListenAndServe(":9000", r)
 }
 
-func bigIntByteConverter(byteValue string) (big.Int, error) {
-	bytes := new(big.Int)
-	bytes, ok := bytes.SetString(byteValue, 16)
-	if !ok {
-		fmt.Println("by: error")
-		return big.Int{}, errors.New("could not convert byteValue")
-	}
-	fmt.Println("recovered ", bytes)
-	return *bytes, nil
-}
-func bigIntHandler(numValue string, byteValue string) (big.Int, big.Int, error){
-	num := new(big.Int)
-	num, ok := num.SetString(numValue, 10)
-	if !ok {
-		fmt.Println("by: error")
-		return big.Int{}, big.Int{}, errors.New("could not convert numValue")
-	}
-	bytes := new(big.Int)
-	bytes, ok = bytes.SetString(byteValue, 16)
-	if !ok {
-		fmt.Println("by: error")
-		return big.Int{}, big.Int{}, errors.New("could not convert byteValue")
-	}
-	fmt.Println("num", num)
-	fmt.Println("by", bytes)
-	return *num, *bytes, nil
-}
+
 func WalletCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		walletAddress := chi.URLParam(r, "walletAddress")
 		publicKey := r.Header.Get("publicKey")
-		newSig := r.Header.Get("signature")
-		stringSigR := r.Header.Get("X-r")
-		stringSigS := r.Header.Get("X-s")
-		ctx := context.WithValue(r.Context(), "walletAddress", walletAddress)
-		ctx = context.WithValue(ctx, "publicKey", publicKey)
-		ctx = context.WithValue(ctx, "stringSigR", stringSigR)
-		ctx = context.WithValue(ctx, "stringSigS", stringSigS)
-		ctx = context.WithValue(ctx, "signature", newSig)
+		stringR := r.Header.Get("X-r")
+		stringS := r.Header.Get("X-s")
+		ctx := context.WithValue(r.Context(), "publicKey", publicKey)
+		ctx = context.WithValue(ctx, "stringR", stringR)
+		ctx = context.WithValue(ctx, "stringS", stringS)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
