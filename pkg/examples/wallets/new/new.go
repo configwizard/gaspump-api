@@ -37,5 +37,7 @@ func main() {
 		file, _ := json.MarshalIndent(secureWallet, "", " ")
 		//_ = ioutil.WriteFile(*walletPath, file, 0644)
 		log.Printf("created new wallets\r\n%+v\r\n", file)
+
+		log.Println("You should now go to the Neo Testnet Faucet and transfer your new wallet some Neo/GAS (https://neowish.ngd.network/#/)")
 		os.Exit(0)
 }

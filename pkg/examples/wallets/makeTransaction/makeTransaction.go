@@ -68,17 +68,7 @@ func main() {
 	if err != nil {
 		log.Fatal("can't unlock wallet:", err)
 	}
-	//gasToken, err := cli.GetNativeContractHash(nativenames.Gas)
-	//if err != nil {
-	//	appl.Fatal(err)
-	//}
-	//send 1 GAS (precision 8) to NeoFS wallet
-	////neoFSWallet := "NadZ8YfvkddivcFFkztZgfwxZyKf1acpRF"
-	//contractAddress, err := util.Uint160DecodeStringLE("0x185ec84c2694684f1dbd2852c27f004d969653d5")
-	//if err != nil {
-	//	return
-	//}
-	//contractAddress := util.Uint160(le)
+
 	account, err := wallet.StringToUint160(acc.Address)
 	param := smartcontract.Parameter{
 		Type:  smartcontract.Hash160Type,

@@ -91,7 +91,7 @@ func main() {
 	//then the user will sign the bearer token data
 	//then the gateway will use the bearer token to upload a file on behalf of the owner
 
-	cntID := cid.New()
+	cntID := cid.ID{}
 	cntID.Parse(containerID)
 	rawBearerToken, bearerBytes, err := gatewayCreateToken(ctx, cli, cntID, &gatewayKey.Accounts[0].PrivateKey().PrivateKey.PublicKey)
 	if err != nil {
@@ -115,7 +115,7 @@ func main() {
 	fmt.Printf("gateway uploaded object %s\r\n", objID)
 }
 
-func gatewayCreateToken(ctx context.Context, cli *client.Client, cid *cid.ID, key *ecdsa.PublicKey) (acl.BearerToken, []byte, error) {
+func gatewayCreateToken(ctx context.Context, cli *client.Client, cid cid.ID, key *ecdsa.PublicKey) (acl.BearerToken, []byte, error) {
 	duration := int64(1)
 	//specifiedTargetRole is the user who should get the access
 	specifiedTargetRole := eacl.NewTarget()

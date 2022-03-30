@@ -26,7 +26,7 @@ function signBearerToken(payload) {
     // signatureData := elliptic.Marshal(elliptic.P256(), x, y)
     // containerOwnerPublicKeyBytes := containerOwnerPrivateKey.PublicKey().Bytes()
 
-    const rawPrivateKey = "1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190"
+    const rawPrivateKey = ""
     // const publicKey = ""
     const account = new neon.wallet.Account(rawPrivateKey);
     const h = sha512.sha512.digest(payload)

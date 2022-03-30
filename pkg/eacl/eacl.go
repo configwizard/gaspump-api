@@ -38,7 +38,7 @@ func PutAllowDenyOthersEACL(containerID cid.ID, allowedPubKey *keys.PublicKey) e
 }
 
 //AllowOthersReadOnly from https://github.com/nspcc-dev/neofs-s3-gw/blob/fdc07b8dc15272e2aabcbd7bb8c19e435c94e392/authmate/authmate.go#L358
-func AllowKeyPutRead(cid *cid.ID, toWhom *eacl.Target) (*eacl.Table, error) {
+func AllowKeyPutRead(cid cid.ID, toWhom *eacl.Target) (*eacl.Table, error) {
 	table := eacl.NewTable()
 	targetOthers := eacl.NewTarget()
 	targetOthers.SetRole(eacl.RoleOthers)
@@ -63,7 +63,7 @@ func AllowKeyPutRead(cid *cid.ID, toWhom *eacl.Target) (*eacl.Table, error) {
 	//putDenyRecord.SetAction(eacl.ActionDeny)
 	//putDenyRecord.SetTargets(toWhom)
 
-	table.SetCID(cid)
+	table.SetCID(&cid)
 	table.AddRecord(getAllowRecord)
 	table.AddRecord(putAllowRecord)
 	//table.AddRecord(getDenyRecord)

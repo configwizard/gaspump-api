@@ -33,7 +33,7 @@ import (
 )
 const usage = `Example
 
-$ ./uploadObjects -wallets ../sample_wallets/wallet.json
+$ ./permissioned-tokens -wallets ../sample_wallets/wallet.json
 password is password
 `
 
