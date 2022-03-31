@@ -104,7 +104,7 @@ func main() {
 		specifiedTargetRole := eacl.NewTarget()
 		eacl.SetTargetECDSAKeys(specifiedTargetRole, &key.PublicKey)
 
-		eaclTable, err := eacl2.AllowKeyPutRead(&cntId, specifiedTargetRole)
+		eaclTable, err := eacl2.AllowKeyPutRead(cntId, specifiedTargetRole)
 		if err != nil {
 			log.Fatal("cant create eacl table:", err)
 		}

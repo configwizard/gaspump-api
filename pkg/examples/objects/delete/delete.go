@@ -78,7 +78,7 @@ func main() {
 		log.Fatal("can't create NeoFS client:", err)
 	}
 
-	cntId := new(cid.ID)
+	cntId := cid.ID{}
 	cntId.Parse(*containerID)
 
 	ownerID := owner.NewID()
@@ -128,7 +128,7 @@ func main() {
 	objID := oid.ID{}
 	objID.Parse(*objectID)
 	//fmt.Printf("bearer %+v \r\n session %+v\r\n", bearerToken, sessionToken)
-	res, err := object.DeleteObject(ctx, cli, objID, *cntId, bearerToken, sessionToken)
+	res, err := object.DeleteObject(ctx, cli, objID, cntId, bearerToken, sessionToken)
 	if err != nil {
 		log.Fatal("listing failed ", err)
 	}

@@ -195,6 +195,10 @@ func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, co
 	fileNameAttr := new(object2.Attribute)
 	fileNameAttr.SetKey(object2.AttributeFileName)
 	fileNameAttr.SetValue(path.Base(filepath))
+	//expirationEpochAttr := new(object.Attribute)
+	//expirationEpochAttr.SetKey("__NEOFS__EXPIRATION_EPOCH") // Reserved case for when the life of the object should expire
+	//expirationEpochAttr.SetValue(strconv.Itoa(epoch))) //The epoch at which the object will expire
+
 	attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
 
 	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attributes, bearerToken, sessionToken, &RR)

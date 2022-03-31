@@ -48,7 +48,7 @@ func Create(ctx context.Context, cli *client.Client, key *ecdsa.PrivateKey, plac
 
 	cnrResponse, err := cli.ContainerPut(ctx, prmContainerPut)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("error creating container: %w", err)
 	}
 	containerID := cnrResponse.ID()
 

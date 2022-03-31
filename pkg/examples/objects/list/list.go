@@ -74,7 +74,7 @@ func main() {
 		log.Fatal("can't create NeoFS client:", err)
 	}
 
-	cntId := new(cid.ID)
+	cntId := cid.ID{}
 	cntId.Parse(*containerID)
 
 	ownerID := owner.NewID()
@@ -122,7 +122,7 @@ func main() {
 	filter := object2.SearchFilters{}
 	filter.AddRootFilter()
 	fmt.Printf("bearer %+v \r\n session %+v\r\n", bearerToken, sessionToken)
-	objectIDs, err := object.QueryObjects(ctx, cli, *cntId, filter, bearerToken, sessionToken)
+	objectIDs, err := object.QueryObjects(ctx, cli, cntId, filter, bearerToken, sessionToken)
 	if err != nil {
 		log.Fatal("listing failed ", err)
 	}
