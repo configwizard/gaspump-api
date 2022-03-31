@@ -186,28 +186,28 @@ func main() {
 	//containerOwnerPrivateKey := keys.PrivateKey{PrivateKey: rawContainerPrivateKey.PrivateKey}
 	//rawPublicKey, _ := containerOwnerPrivateKey.PublicKey().MarshalJSON()
 	//fmt.Println("rawPublicKey ", string(rawPublicKey)) // this is the public key i am using in javascript
-	//apiKeyOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(apiPrivateKey.PublicKey()))
+
 	apiClient, err := createClient(*apiPrivateKey)
 	if err != nil {
 		log.Fatal("err ", err)
 	}
-	//ctx := context.Background()
+
 
 	//var containerID cid.ID
-	//if *cnt == "" {
-	//	//1. the container owner needs to create a container to work on:
-	//	containerID, err = createProtectedContainer(ctx, apiClient, apiKeyOwner)
-	//	if err != nil {
-	//		log.Fatal("err ", err)
-	//	}
-	//	//2. Now the container owner needs to protect the container from undesirables
-	//	if err := setRestrictedContainerAccess(ctx, apiClient, containerID); err != nil {
-	//		log.Fatal("err ", err)
-	//	}
-	//} else {
-	//	fmt.Println("parsing", *cnt)
-	//	containerID.Parse(*cnt)
-	//}
+	if *cnt == "" {
+		ctx := context.Background()
+		apiKeyOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(apiPrivateKey.PublicKey()))
+		//1. the container owner needs to create a container to work on:
+		containerID, err := createProtectedContainer(ctx, apiClient, apiKeyOwner)
+		if err != nil {
+			log.Fatal("err ", err)
+		}
+		//2. Now the container owner needs to protect the container from undesirables
+		if err := setRestrictedContainerAccess(ctx, apiClient, containerID); err != nil {
+			log.Fatal("err ", err)
+		}
+		fmt.Println("created container id ", containerID)
+	}
 
 	// the above will have been done by the user, out of band
 	r := chi.NewRouter()
