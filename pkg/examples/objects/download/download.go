@@ -109,7 +109,7 @@ func main() {
 			log.Fatal("cant create eacl table:", err)
 		}
 		//(tokenReceiver *owner.ID, expire uint64, eaclTable *eacl.Table, containerOwnerKey *ecdsa.PrivateKey) (*token.BearerToken, error){
-		bearerToken, err = client2.NewBearerToken(ownerID, client2.GetHelperTokenExpiry(ctx, cli, 10), eaclTable, key)
+		bearerToken, err = client2.NewBearerToken(ownerID, client2.GetHelperTokenExpiry(ctx, cli, 10), eaclTable, true, key)
 
 		marshalBearerToken, err := client2.MarshalBearerToken(*bearerToken)
 		if err != nil {

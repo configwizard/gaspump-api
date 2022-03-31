@@ -46,13 +46,17 @@ func ExampleBearerToken(duration uint64, containerID *cid.ID, tokenReceiver *own
 	err := bt.SignToken(containerOwnerKey)
 	return bt, err
 }
-func NewBearerToken(tokenReceiver *owner.ID, expire uint64, eaclTable *eacl.Table, containerOwnerKey *ecdsa.PrivateKey) (*token.BearerToken, error){
+func NewBearerToken(tokenReceiver *owner.ID, expire uint64, eaclTable eacl.Table, sign bool, containerOwnerKey *ecdsa.PrivateKey) (*token.BearerToken, error){
 	btoken :=  token.NewBearerToken()
 	btoken.SetLifetime(expire, 0, 0)
 	btoken.SetOwner(tokenReceiver)
-	btoken.SetEACLTable(eaclTable)
-	err := btoken.SignToken(containerOwnerKey)
-	return btoken, err
+	btoken.SetEACLTable(&eaclTable)
+	if sign {
+		if err := btoken.SignToken(containerOwnerKey); err != nil {
+			return btoken, err
+		}
+	}
+	return btoken, nil
 }
 func MarshalBearerToken(btoken token.BearerToken) ([]byte, error) {
 	// Marshal and provide it to bearer token user

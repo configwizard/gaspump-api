@@ -7,9 +7,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	client2 "github.com/configwizard/gaspump-api/pkg/client"
 	eacl2 "github.com/configwizard/gaspump-api/pkg/eacl"
 	"github.com/configwizard/gaspump-api/pkg/examples/tokens/simple-share-server/api/objects"
 	"github.com/configwizard/gaspump-api/pkg/examples/tokens/simple-share-server/api/tokens"
+	"github.com/configwizard/gaspump-api/pkg/examples/tokens/simple-share-server/api/utils"
 	"github.com/nspcc-dev/neo-go/cli/flags"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -18,8 +20,11 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
+	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"log"
 	"net/http"
 	"os"
@@ -39,7 +44,7 @@ password is password
 var (
 	walletPath = flag.String("wallets", "", "path to JSON wallets file")
 	//walletAddr = flag.String("address", "", "wallets address [optional]")
-	cnt = flag.String("container", "", "choose a container")
+	cnt = flag.Bool("container", false, "make a container")
 	//createWallet = flag.Bool("create", false, "create a wallets")
 	//useBearerToken = flag.Bool("bearer", false, "use a bearer token")
 	password = flag.String("password", "", "wallet password")
@@ -163,7 +168,7 @@ func await30Seconds(f func() bool) {
 
 		time.Sleep(time.Second)
 	}
-	panic("timeout")
+	log.Fatal("timeout")
 }
 
 func main() {
@@ -194,19 +199,48 @@ func main() {
 
 
 	//var containerID cid.ID
-	if *cnt == "" {
+	if *cnt {
 		ctx := context.Background()
 		apiKeyOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(apiPrivateKey.PublicKey()))
-		//1. the container owner needs to create a container to work on:
-		containerID, err := createProtectedContainer(ctx, apiClient, apiKeyOwner)
+		////1. the container owner needs to create a container to work on:
+		//containerID, err := createProtectedContainer(ctx, apiClient, apiKeyOwner)
+		//if err != nil {
+		//	log.Fatal("err ", err)
+		//}
+		////2. Now the container owner needs to protect the container from undesirables
+		//if err := setRestrictedContainerAccess(ctx, apiClient, containerID); err != nil {
+		//	log.Fatal("err ", err)
+		//}
+		cntID := cid.ID{}
+		cntID.Parse("HNhjKjd864CKBbce3voBMRu9j95rHCtTzHcycUMwuZTx")
+		fmt.Println("created container id ", cntID)
+		putSession, err := client2.CreateSessionWithObjectPutContext(ctx, apiClient, apiKeyOwner, cntID, utils.GetHelperTokenExpiry(ctx, apiClient), &apiPrivateKey.PrivateKey)
 		if err != nil {
-			log.Fatal("err ", err)
+			log.Fatal(err)
 		}
-		//2. Now the container owner needs to protect the container from undesirables
-		if err := setRestrictedContainerAccess(ctx, apiClient, containerID); err != nil {
-			log.Fatal("err ", err)
+		var objectID oid.ID
+		o := object.New()
+		o.SetContainerID(&cntID)
+		o.SetOwnerID(apiKeyOwner)
+
+		objWriter, err := apiClient.ObjectPutInit(ctx, client.PrmObjectPutInit{})
+		if putSession != nil {
+			objWriter.WithinSession(*putSession)
 		}
-		fmt.Println("created container id ", containerID)
+		var bearerToken token.BearerToken
+		if &bearerToken != nil {
+			objWriter.WithBearerToken(bearerToken)
+		}
+		if !objWriter.WriteHeader(*o) {
+			log.Fatal(err)
+		}
+		objWriter.WritePayloadChunk([]byte("Hello World"))
+		res, err := objWriter.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+		res.ReadStoredObjectID(&objectID)
+		fmt.Println("successfully stored object ", objectID.String(), " in container ", cntID.String())
 	}
 
 	// the above will have been done by the user, out of band
@@ -216,19 +250,26 @@ func main() {
 		w.Write([]byte("Welcome to a simple example of sharing access tokens for neoFS"))
 	})
 
-	r.Route("/api/v1/auth", func(r chi.Router) {
+	r.Route("/api/v1/bearer", func(r chi.Router) {
 		r.Use(WalletCtx)
 		//ok so this endpoint is requesting a new bearer token to sign
 		r.Get("/{containerId}", tokens.UnsignedBearerToken(apiClient))
 	})
-
+	r.Route("/api/v1/container", func(r chi.Router) {
+		r.Use(WalletCtx)
+		r.Get("/{containerId}", objects.GetObjectHead(apiClient))
+		r.Post("/{containerId}", objects.GetObjectHead(apiClient))
+		r.Delete("/{containerId}", objects.GetObjectHead(apiClient))
+	})
 	r.Route("/api/v1/object", func(r chi.Router) {
 		r.Use(WalletCtx)
-		r.Get("/{containerId}/{objectId}", objects.GetObjectHead(apiClient, &apiPrivateKey.PrivateKey))
+		r.Head("/{containerId}/{objectId}", objects.GetObjectHead(apiClient))
+		r.Get("/{containerId}/{objectId}", objects.GetObject(apiClient))
+		r.Post("/{containerId}/", objects.GetObjectHead(apiClient))
+		r.Delete("/{containerId}/{objectId}", objects.GetObjectHead(apiClient))
 	})
 	http.ListenAndServe(":9000", r)
 }
-
 
 func WalletCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

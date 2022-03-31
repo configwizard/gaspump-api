@@ -60,6 +60,34 @@ func CreateSessionWithObjectGetContext(ctx context.Context, cli *client.Client, 
 	}
 	return stoken, nil
 }
+func CreateSessionWithObjectPutContext(ctx context.Context, cli *client.Client, owner *owner.ID, containerID cid.ID, expiry uint64, key *ecdsa.PrivateKey) (*session.Token, error) {
+	var prmSessionCreate client.PrmSessionCreate
+	prmSessionCreate.SetExp(expiry)
+
+	stoken := session.NewToken()
+	res, err := cli.SessionCreate(ctx, prmSessionCreate)
+	if err != nil {
+		return stoken, err
+	}
+	addr := address.NewAddress()
+	addr.SetContainerID(&containerID)
+
+	objectCtx := session.NewObjectContext()
+	objectCtx.ForPut()
+	objectCtx.ApplyTo(addr)
+
+	stoken.SetSessionKey(res.PublicKey())
+	stoken.SetID(res.ID())
+	stoken.SetExp(expiry)
+	stoken.SetOwnerID(owner)
+	stoken.SetContext(objectCtx)
+
+	err = stoken.Sign(key)
+	if err != nil {
+		return stoken, err
+	}
+	return stoken, nil
+}
 func CreateSessionWithObjectDeleteContext(ctx context.Context, cli *client.Client, owner *owner.ID, containerID *cid.ID, expiry uint64, key *ecdsa.PrivateKey) (*session.Token, error) {
 	var prmSessionCreate client.PrmSessionCreate
 	prmSessionCreate.SetExp(expiry)

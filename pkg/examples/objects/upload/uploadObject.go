@@ -113,7 +113,7 @@ func main() {
 		//}
 		table := eacl2.PutAllowDenyOthersEACL(cntId, (*keys.PublicKey)(&key.PublicKey))
 		//bearerToken, err = client2.ExampleBearerToken(30, cntId, ownerID, info.CurrentEpoch(), specifiedTargetRole, eaclTable, key)
-		bearerToken, err = client2.NewBearerToken(ownerID, getHelperTokenExpiry(ctx, cli), &table, key)
+		bearerToken, err = client2.NewBearerToken(ownerID, getHelperTokenExpiry(ctx, cli), table, true, key)
 
 		marshalBearerToken, err := client2.MarshalBearerToken(*bearerToken)
 		if err != nil {
@@ -148,7 +148,7 @@ func main() {
 func getHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
 	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {
-		panic(err)
+		log.Fatal("error retrieving network info", err)
 	}
 
 	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)

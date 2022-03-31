@@ -14,6 +14,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/machinebox/progress v0.2.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.11.2-0.20220302134950-d065453bd0a7
+	github.com/virtuald/go-ordered-json v0.0.0-20170621173500-b18e6e673d74
 )
 
 require (

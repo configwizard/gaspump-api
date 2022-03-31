@@ -9,13 +9,14 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
+	"log"
 	"math/big"
 )
 
 func GetHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
 	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {
-		panic(err)
+		log.Fatal("cannot connect to network")
 	}
 
 	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)
