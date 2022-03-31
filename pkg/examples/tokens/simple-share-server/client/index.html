@@ -2,8 +2,163 @@
 <head>
     <script src="https://unpkg.com/@cityofzion/neon-js@next"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha512/0.8.0/sha512.min.js" integrity="sha512-KUrAWA1oxsWKHBaA2mlZyRuR8zzzHHYgpDfkfPrT3FhlZ4YdXbXyE89VHI6WmWradSHtuZjLyLAMP2F7IWK4JQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<body></body>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+<style>
+    pre {
+        white-space: pre-wrap;       /* Since CSS 2.1 */
+        white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+        white-space: -pre-wrap;      /* Opera 4-6 */
+        white-space: -o-pre-wrap;    /* Opera 7 */
+        word-wrap: break-word;       /* Internet Explorer 5.5+ */
+    }
+</style>
+<body>
+<div class="container">
+    <!-- Content here -->
+    <div class="row">
+        <div class="col-sm-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">1. Request new bearer token</h5>
+                    <p class="card-text">before any request you will need a bearer token. You can specify how long a token should last.</p>
+                    <div class="input-group mb-3">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text">public key</span>
+                        </div>
+                        <input type="text" class="form-control" id="publicKey" aria-describedby="basic-addon3" value="02f2c7b3a7a83300754a936c2455c2f1eb7f5dc0839d7367e9a6a4502f411aaeb5">
+                    </div>
+                    <div class="input-group mb-3">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text">container ID</span>
+                        </div>
+                        <input type="text" class="form-control" id="containerID" aria-describedby="basic-addon3" value="HNhjKjd864CKBbce3voBMRu9j95rHCtTzHcycUMwuZTx">
+                    </div>
+                    <button class="btn btn-primary" id="getBearerToken" >Request Token</button>
+                    <span>
+                        <pre id="token"></pre>
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">2. Sign the bearer token</h5>
+                    <p class="card-text">Now, with your private key, you need to sign the bearer token. This will respond with two integers, r and s</p>
+                    <div class="input-group mb-3">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text">private key</span>
+                        </div>
+                        <input type="text" class="form-control" id="privateKey" aria-describedby="basic-addon3" value="1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190">
+                    </div>
+                    <button class="btn btn-primary" id="signToken">Sign Token</button>
+                    <span>
+                        <pre id="signature"></pre>
+<!--                        <button onClick="getBearerToken()">Click me</button>-->
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">3. Use the signature</h5>
+                    <p class="card-text">The signature can now be used to make a request, in this case, retrieving the metadata of an object</p>
+                    <div class="input-group mb-3">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text">objectID</span>
+                        </div>
+                        <input type="text" class="form-control" id="objectID" aria-describedby="basic-addon3" value="JCk1c6fU9fCChxwLqne1QX5MUumDwdFdWyiXT9o15D6b">
+                    </div>
+                    <button class="btn btn-primary" id="requestMeta">Make request</button>
+                    <span>
+                        <pre id="metadata"></pre>
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">4. View the content</h5>
+                    <p class="card-text">In this case, the content was sent as a response header due to `"HEAD"` METHOD requests don't respond with a body. The content needs decoding</p>
+                    <button class="btn btn-primary" id="decodeContent">Decode</button>
+                    <span>
+                        <pre id="decodedContent"></pre>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
 <script>
+
+    function getBearerToken() {
+        //HNhjKjd864CKBbce3voBMRu9j95rHCtTzHcycUMwuZTx
+        let containerID = document.getElementById("containerID")
+        console.log(containerID.value)
+        const p = document.getElementById("publicKey")
+        console.log("p", p.value)
+        //1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190
+        // const publicKey = decryptAccountData(p.value)
+        // console.log(publicKey)
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                // Typical action to be performed when the document is ready:
+                document.getElementById("token").innerHTML = xhttp.responseText;
+            }
+        };
+        xhttp.open("GET", `http://localhost:9000/api/v1/bearer/${containerID.value}`, true);
+        xhttp.setRequestHeader("publicKey", p.value)
+        xhttp.send();
+    }
+    function decodeMeta() {
+        const content = document.getElementById("metadata").innerText
+        const decodedContent = window.atob(content)
+        document.getElementById("decodedContent").innerText = decodedContent
+    }
+    function requestMeta() {
+        const p = document.getElementById("publicKey")
+        let containerID = document.getElementById("containerID")
+        let objectID = document.getElementById("objectID")
+        console.log(objectID.value)
+        let signatureArea = document.getElementById("signature").innerText
+        let signature = JSON.parse(signatureArea)
+        let xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            if (this.readyState == this.HEADERS_RECEIVED) {
+                // Get the raw header string
+                var headers = xhttp.getAllResponseHeaders();
+
+                console.log("raw headers")
+                // Convert the header string into an array
+                // of individual headers
+                var arr = headers.trim().split(/[\r\n]+/);
+
+                // Create a map of header names to values
+                var headerMap = {};
+                arr.forEach(function (line) {
+                    var parts = line.split(': ');
+                    var header = parts.shift();
+                    var value = parts.join(': ');
+                    headerMap[header] = value;
+                });
+                console.log("Headers", headerMap)
+                document.getElementById("metadata").innerText = headerMap["neofs-meta"]
+            }
+        };
+        xhttp.open("HEAD", `http://localhost:9000/api/v1/object/${containerID.value}/${objectID.value}`, true);
+        xhttp.setRequestHeader("publicKey", p.value)
+        xhttp.setRequestHeader("X-r", signature.r)
+        xhttp.setRequestHeader("X-s", signature.s)
+        xhttp.send();
+    }
     function _base64ToArrayBuffer(base64) {
         var binary_string = window.atob(base64);
         var len = binary_string.length;
@@ -18,7 +173,13 @@
             return ('0' + (byte & 0xFF).toString(16)).slice(-2);
         }).join('')
     }
-    function neofsSign1(msg, account) {
+    function signToken() {
+        const msgStr = document.getElementById("token").innerText
+        const msg = JSON.parse(msgStr).token
+        console.log("msg", msg)
+        const privKey = document.getElementById("privateKey")
+        const account = decryptAccountData(privKey.value)
+        console.log("getting account", account)
         console.log("msg ", msg)
         const decoededMessage = _base64ToArrayBuffer(msg)
         console.table("decoededMessage", decoededMessage)
@@ -31,6 +192,8 @@
         console.log("verify ", curve.verify(sha512.digest(decoededMessage), sig, Neon.wallet.getPublicKeyFromPrivateKey(account.privateKey)))
         const signatureBytes = JSON.stringify(sig.toString())
         console.log("bytes signature ", signatureBytes)
+        let signatureArea = document.getElementById("signature")
+        signatureArea.innerText = JSON.stringify(sig)
         return sig;
     }
     function decryptAccountData(privateKey) {
@@ -42,9 +205,13 @@
         console.log("WIF", myAccount.WIF);
         return myAccount
     }
+    document.getElementById("getBearerToken").onclick = function() {getBearerToken()};
+    document.getElementById("signToken").onclick = function() {signToken()};
+    document.getElementById("requestMeta").onclick = function() {requestMeta()};
+    document.getElementById("decodeContent").onclick = function() {decodeMeta()};
 
-    const account = decryptAccountData("1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190")
-    console.log(neofsSign1("Cl8KBAgCEAsSIgog80o9tLn2bvmLLwCsDHhqj3XEBXwJ7Hr4Um04mvMw0tsaKQgDEAEiIxIhAvLHs6eoMwB1SpNsJFXC8et/XcCDnXNn6aakUC9BGq61GggIAxACIgIIAxIbChk1wCscYdTTROMkIzHE76olVgEs0Xdp3/biGgMI3iU=", account))
+    // const account = decryptAccountData("1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190")
+    // console.log(neofsSign1("Cl8KBAgCEAsSIgog80o9tLn2bvmLLwCsDHhqj3XEBXwJ7Hr4Um04mvMw0tsaKQgDEAEiIxIhAvLHs6eoMwB1SpNsJFXC8et/XcCDnXNn6aakUC9BGq61GggIAxACIgIIAxIbChk1wCscYdTTROMkIzHE76olVgEs0Xdp3/biGgMI3iU="))
 </script>
 </html>
 

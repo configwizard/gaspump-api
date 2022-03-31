@@ -25,6 +25,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
+	"github.com/go-chi/cors"
 	"log"
 	"net/http"
 	"os"
@@ -246,6 +247,16 @@ func main() {
 	// the above will have been done by the user, out of band
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
+	cors := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
+		AllowedMethods:   []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"*"}, //"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "publicKey", "x-r", "x-s"
+		ExposedHeaders:   []string{"*"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	})
+	r.Use(cors.Handler)
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Welcome to a simple example of sharing access tokens for neoFS"))
 	})
@@ -265,7 +276,7 @@ func main() {
 		r.Use(WalletCtx)
 		r.Head("/{containerId}/{objectId}", objects.GetObjectHead(apiClient))
 		r.Get("/{containerId}/{objectId}", objects.GetObject(apiClient))
-		r.Post("/{containerId}/", objects.GetObjectHead(apiClient))
+		r.Post("/{containerId}", objects.UploadObject(apiClient))
 		r.Delete("/{containerId}/{objectId}", objects.GetObjectHead(apiClient))
 	})
 	http.ListenAndServe(":9000", r)
