@@ -100,7 +100,7 @@ func main() {
 			log.Fatal("cant create eacl table:", err)
 		}
 		//(tokenReceiver *owner.ID, expire uint64, eaclTable *eacl.Table, containerOwnerKey *ecdsa.PrivateKey) (*token.BearerToken, error){
-		bearerToken, err = client2.NewBearerToken(ownerID, getHelperTokenExpiry(ctx, cli), eaclTable, key)
+		bearerToken, err = client2.NewBearerToken(ownerID, getHelperTokenExpiry(ctx, cli), eaclTable, true, key)
 
 		marshalBearerToken, err := client2.MarshalBearerToken(*bearerToken)
 		if err != nil {
@@ -134,7 +134,7 @@ func main() {
 func getHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
 	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {
-		panic(err)
+		return 0
 	}
 
 	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)

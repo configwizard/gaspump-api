@@ -78,7 +78,7 @@ func main() {
 		log.Fatal("can't create NeoFS client:", err)
 	}
 
-	cntId := new(cid.ID)
+	cntId := cid.ID{}
 	cntId.Parse(*containerID)
 
 	ownerID := owner.NewID()
@@ -104,7 +104,7 @@ func main() {
 			log.Fatal("cant create eacl table:", err)
 		}
 		//(tokenReceiver *owner.ID, expire uint64, eaclTable *eacl.Table, containerOwnerKey *ecdsa.PrivateKey) (*token.BearerToken, error){
-		bearerToken, err = client2.NewBearerToken(ownerID, getHelperTokenExpiry(ctx, cli), eaclTable, key)
+		bearerToken, err = client2.NewBearerToken(ownerID, getHelperTokenExpiry(ctx, cli), eaclTable, true, key)
 
 		marshalBearerToken, err := client2.MarshalBearerToken(*bearerToken)
 		if err != nil {
@@ -128,7 +128,7 @@ func main() {
 	objID := oid.ID{}
 	objID.Parse(*objectID)
 	//fmt.Printf("bearer %+v \r\n session %+v\r\n", bearerToken, sessionToken)
-	res, err := object.DeleteObject(ctx, cli, objID, *cntId, bearerToken, sessionToken)
+	res, err := object.DeleteObject(ctx, cli, objID, cntId, bearerToken, sessionToken)
 	if err != nil {
 		log.Fatal("listing failed ", err)
 	}
@@ -138,7 +138,7 @@ func main() {
 func getHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
 	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {
-		panic(err)
+		return 0
 	}
 
 	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)

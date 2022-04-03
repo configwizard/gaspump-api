@@ -12,6 +12,7 @@ import (
 	"github.com/configwizard/gaspump-api/pkg/examples/tokens/simple-share-server/api/objects"
 	"github.com/configwizard/gaspump-api/pkg/examples/tokens/simple-share-server/api/tokens"
 	"github.com/configwizard/gaspump-api/pkg/examples/tokens/simple-share-server/api/utils"
+	"github.com/go-chi/cors"
 	"github.com/nspcc-dev/neo-go/cli/flags"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -25,7 +26,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
-	"github.com/go-chi/cors"
 	"log"
 	"net/http"
 	"os"
@@ -189,9 +189,13 @@ func main() {
 		log.Fatal("can't read credentials:", err)
 	}
 
-	//containerOwnerPrivateKey := keys.PrivateKey{PrivateKey: rawContainerPrivateKey.PrivateKey}
-	//rawPublicKey, _ := containerOwnerPrivateKey.PublicKey().MarshalJSON()
-	//fmt.Println("rawPublicKey ", string(rawPublicKey)) // this is the public key i am using in javascript
+
+
+	w := wallet.NewAccountFromPrivateKey(apiPrivateKey)
+	fmt.Println("wallet address", w.Address)
+	containerOwnerPrivateKey := keys.PrivateKey{PrivateKey: apiPrivateKey.PrivateKey}
+	rawPublicKey, _ := containerOwnerPrivateKey.PublicKey().MarshalJSON()
+	fmt.Println("rawPublicKey ", string(rawPublicKey)) // this is the public key i am using in javascript
 
 	apiClient, err := createClient(*apiPrivateKey)
 	if err != nil {

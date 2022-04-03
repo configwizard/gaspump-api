@@ -88,7 +88,7 @@ func CreateSessionWithObjectPutContext(ctx context.Context, cli *client.Client, 
 	}
 	return stoken, nil
 }
-func CreateSessionWithObjectDeleteContext(ctx context.Context, cli *client.Client, owner *owner.ID, containerID *cid.ID, expiry uint64, key *ecdsa.PrivateKey) (*session.Token, error) {
+func CreateSessionWithObjectDeleteContext(ctx context.Context, cli *client.Client, owner *owner.ID, containerID cid.ID, expiry uint64, key *ecdsa.PrivateKey) (*session.Token, error) {
 	var prmSessionCreate client.PrmSessionCreate
 	prmSessionCreate.SetExp(expiry)
 
@@ -98,7 +98,7 @@ func CreateSessionWithObjectDeleteContext(ctx context.Context, cli *client.Clien
 		return stoken, err
 	}
 	addr := address.NewAddress()
-	addr.SetContainerID(containerID)
+	addr.SetContainerID(&containerID)
 
 	objectCtx := session.NewObjectContext()
 	objectCtx.ForDelete()

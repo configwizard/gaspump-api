@@ -42,7 +42,7 @@ func GenerateUnsignedSessionToken(ctx context.Context, cli *client.Client, durat
 	return *rawSessionToken, binaryData, err
 }
 //giving access to a public key
-func GenerateUnsignedBearerToken(ctx context.Context, cli *client.Client, table *eacl.Table, duration int64, authorizedPublicKey *ecdsa.PublicKey) (acl.BearerToken, []byte, error) {
+func GenerateUnsignedBearerToken(ctx context.Context, cli *client.Client, table eacl.Table, duration int64, authorizedPublicKey *ecdsa.PublicKey) (acl.BearerToken, []byte, error) {
 	// Create this bearer token on RESTFul API Gateway side.
 	//var APIGatewayPublicKey *ecdsa.PublicKey
 	oid, err := wallet.OwnerIDFromPublicKey(authorizedPublicKey)
@@ -53,7 +53,7 @@ func GenerateUnsignedBearerToken(ctx context.Context, cli *client.Client, table 
 	lt.SetExp(CalculateEpochsForTime(ctx, cli, 60 * 60)) //set the token lifetime
 
 	bearerToken := token.NewBearerToken()
-	bearerToken.SetEACLTable(table)
+	bearerToken.SetEACLTable(&table)
 	bearerToken.SetOwner(oid)
 	bearerToken.SetLifetime(lt.GetExp(), lt.GetNbf(), lt.GetIat())
 	// SDK does not provide function to sign token other than `signedBearerToken.SignToken`.

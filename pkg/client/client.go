@@ -29,7 +29,7 @@ func NewClient(privateKey *ecdsa.PrivateKey, network FS_NETWORK) (*client.Client
 func GetHelperTokenExpiry(ctx context.Context, cli *client.Client, roughEpochs uint64) uint64 {
 	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {
-		panic(err)
+		return 0
 	}
 
 	expire := ni.Info().CurrentEpoch() + roughEpochs // valid for 10 epochs (~ 10 hours)
@@ -51,7 +51,7 @@ func GetNetworkInfo(ctx context.Context, cli *client.Client) (*netmap.NetworkInf
 func CalculateEpochsForTime(ctx context.Context, cli *client.Client, durationInSeconds int64) uint64 {
 	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {
-		panic(err)
+		return 0
 	}
 
 	ms := ni.Info().MsPerBlock()
