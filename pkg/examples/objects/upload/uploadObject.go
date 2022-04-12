@@ -182,7 +182,6 @@ func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, co
 		defer wg.Done()
 		progressChan := progress.NewTicker(ctx, c, fileStats.Size(), 50*time.Millisecond)
 		for p := range progressChan {
-			print("time")
 			fmt.Printf("\r%v remaining...", p.Remaining().Round(250*time.Millisecond))
 		}
 	}()

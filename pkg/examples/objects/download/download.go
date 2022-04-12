@@ -141,7 +141,7 @@ func main() {
 		}
 	}
 	fmt.Printf("payload size `%+v\r\n", head.PayloadSize())
-	f, err := os.Create(filepath.Join("/Users/alex.walker", filename))
+	f, err := os.Create(filepath.Join("./", filename))
 	defer f.Close()
 	if err != nil {
 		log.Fatal(err)

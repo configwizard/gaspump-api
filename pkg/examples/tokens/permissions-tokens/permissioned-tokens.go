@@ -184,7 +184,7 @@ func main() {
 	h := sha512.Sum512(binaryData)
 	r, s, err := ecdsa.Sign(rand.Reader, &containerOwnerPrivateKey.PrivateKey, h[:])
 	if err != nil {
-		panic(err)
+		log.Fatal("error signing", err)
 	}
 	signatureData := elliptic.Marshal(elliptic.P256(), r, s)
 	fmt.Println("r-Val", r.String())
@@ -257,7 +257,7 @@ func objectPutDenyOthersEACL(containerID *cid.ID, allowedPubKey *keys.PublicKey)
 func getHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
 	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {
-		panic(err)
+		log.Fatal("error getting expiry")
 	}
 
 	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)
@@ -271,7 +271,7 @@ func await30Seconds(f func() bool) {
 
 		time.Sleep(time.Second)
 	}
-	panic("timeout")
+	log.Fatal("timeout")
 }
 
 func objectSessionToken(ctx context.Context, cli *client.Client, owner *owner.ID, containerID *cid.ID, key *ecdsa.PrivateKey) *session.Token {
@@ -281,7 +281,7 @@ func objectSessionToken(ctx context.Context, cli *client.Client, owner *owner.ID
 
 	res, err := cli.SessionCreate(ctx, prmSessionCreate)
 	if err != nil {
-		panic(err)
+		log.Fatal("error creating session", err)
 	}
 
 	addr := address.NewAddress()
@@ -300,7 +300,7 @@ func objectSessionToken(ctx context.Context, cli *client.Client, owner *owner.ID
 
 	err = stoken.Sign(key)
 	if err != nil {
-		panic(err)
+		log.Fatal("error signing", err)
 	}
 
 	return stoken

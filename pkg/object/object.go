@@ -3,7 +3,6 @@ package object
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -135,18 +134,16 @@ func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, contain
 		_, err = objReader.Close()
 		return dstObject, err
 	}
-	buf := make([]byte, 1024) // 1 MiB
+	buf := make([]byte, 1024*1024) // 1 MiB
 	for {
-		if _, writerErr := (*writer).Write(buf); writerErr != nil {
-			return nil, errors.New("error writing to buffer: " + writerErr.Error())
-		}
-		if _, ok := objReader.ReadChunk(buf); !ok {
-			break
-		}
-		fmt.Printf("* %v\r\n", string(buf))
+		_, err := objReader.Read(buf)
+
 		// get total size from object header and update progress bar based on n bytes received
 		if errors.Is(err, io.EOF) {
 			break
+		}
+		if _, writerErr := (*writer).Write(buf); writerErr != nil {
+			return nil, errors.New("error writing to buffer: " + writerErr.Error())
 		}
 	}
 	return dstObject, err //return pointer to avoid passing around large payloads?
