@@ -1,18 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha512"
-	"errors"
 	"flag"
 	"fmt"
-	"github.com/nspcc-dev/neo-go/cli/flags"
-	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	"github.com/nspcc-dev/neofs-sdk-go/acl"
+	client2 "github.com/configwizard/gaspump-api/pkg/client"
+	gpWallet "github.com/configwizard/gaspump-api/pkg/wallet"
 	"log"
 	"os"
 	"time"
@@ -23,17 +21,16 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
-
-	eacl2 "github.com/configwizard/gaspump-api/pkg/eacl"
 )
 const usage = `Example
 
-$ ./permissioned-tokens -wallets ../sample_wallets/wallet.json
+$ ./permissioned-tokens -wallets ../sample_wallets/wallet.json.go
 password is password
 `
 
@@ -42,64 +39,59 @@ var (
 	walletAddr = flag.String("address", "", "wallets address [optional]")
 	createWallet = flag.Bool("create", false, "create a wallets")
 	useBearerToken = flag.Bool("bearer", false, "use a bearer token")
+	createContainer = flag.Bool("container", false, "create a container")
 	password = flag.String("password", "", "wallet password")
 )
-
-// getKeyFromWallet fetches private key from neo-go wallets structure
-func getKeyFromWallet(w *wallet.Wallet, addrStr, password string) (*ecdsa.PrivateKey, error) {
-	var (
-		addr util.Uint160
-		err  error
-	)
-
-	if addrStr == "" {
-		addr = w.GetChangeAddress()
-	} else {
-		addr, err = flags.ParseAddress(addrStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid wallets address %s: %w", addrStr, err)
-		}
-	}
-
-	acc := w.GetAccount(addr)
-	if acc == nil {
-		return nil, fmt.Errorf("invalid wallets address %s: %w", addrStr, err)
-	}
-
-	if err := acc.Decrypt(password, keys.NEP2ScryptParams()); err != nil {
-		return nil, errors.New("[decrypt] invalid password - " + err.Error())
-
-	}
-
-	return &acc.PrivateKey().PrivateKey, nil
-}
-func GetCredentialsFromPath(path, address, password string) (*ecdsa.PrivateKey, error) {
-	w, err := wallet.NewWalletFromFile(path)
+func GetHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
+	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {
-		return nil, fmt.Errorf("can't read the wallets: %walletPath", err)
+		log.Fatal("cannot connect to network")
 	}
 
-	return getKeyFromWallet(w, address, password)
+	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)
+	return expire
 }
 func main() {
 	// Step 0: prepare credentials.
 	// There are two keys:
 	// - containerOwnerKey -- private key of the user, should be managed by wallet provider
 	// - requestSenderKey -- private key of the gateway app, which will do operation on behalf of the user
-
+	wd, _ := os.Getwd()
+	fmt.Println("cwd", wd)
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr, usage)
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	//
+	//if *containerID == "" {
+	//	log.Fatal("need a container")
+	//}
+	//if *objectID == "" {
+	//	log.Fatal("need an object")
+	//}
 	// First obtain client credentials: private key of request owner
-	// First obtain client credentials: private key of request owner
-	rawContainerPrivateKey, err := keys.NewPrivateKeyFromHex("1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190")
+	containerOwnerKey, err := gpWallet.GetCredentialsFromPath(*walletPath, *walletAddr, *password)
 	if err != nil {
 		log.Fatal("can't read credentials:", err)
 	}
-	containerOwnerPrivateKey := keys.PrivateKey{PrivateKey: rawContainerPrivateKey.PrivateKey}
-	containerOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(containerOwnerPrivateKey.PublicKey()))
+
+	ownerWallet := gpWallet.GetWalletFromPrivateKey(containerOwnerKey)
+	log.Println("using account ", ownerWallet.Address)
+
+	//cli, err := client2.NewClient(key, client2.TESTNET)
+	//if err != nil {
+	//	log.Fatal("can't create NeoFS client:", err)
+	//}
+
+	// Step 0: prepare credentials.
+	// There are two keys:
+	// - containerOwnerKey -- private key of the user, should be managed by wallet provider
+	// - requestSenderKey -- private key of the gateway app, which will do operation on behalf of the user
+
+
+	//containerOwnerKey, _ := keys.NewPrivateKey()
+	containerOwnerID := owner.NewIDFromPublicKey(&containerOwnerKey.PublicKey)
 
 	requestSenderKey, _ := keys.NewPrivateKey()
 	requestOwner := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(requestSenderKey.PublicKey()))
@@ -107,71 +99,76 @@ func main() {
 	ctx := context.Background()
 
 	containerOwnerClient, _ := client.New(
-		client.WithURIAddress("grpcs://st01.testnet.fs.neo.org:8082", nil),
-		client.WithDefaultPrivateKey(&containerOwnerPrivateKey.PrivateKey),
+		client.WithURIAddress(string(client2.TESTNET), nil),
+		client.WithDefaultPrivateKey(containerOwnerKey),
 		client.WithNeoFSErrorParsing(),
 	)
 
-		//requestSenderClient, _ := client.New(
-		//	client.WithURIAddress("grpcs://st01.testnet.fs.neo.org:8082", nil),
-		//	client.WithDefaultPrivateKey(&requestSenderKey.PrivateKey),
-		//	client.WithNeoFSErrorParsing(),
-		//)
-
-	// Step 1: create container
-	containerPolicy, _ := policy.Parse("REP 2")
-	cnr := container.New(
-		container.WithPolicy(containerPolicy),
-		container.WithOwnerID(containerOwner),
-		container.WithCustomBasicACL(acl.EACLPublicBasicRule),
+	requestSenderClient, _ := client.New(
+		client.WithURIAddress(string(client2.TESTNET), nil),
+		client.WithDefaultPrivateKey(&requestSenderKey.PrivateKey),
+		client.WithNeoFSErrorParsing(),
 	)
 
-	var prmContainerPut client.PrmContainerPut
-	prmContainerPut.SetContainer(*cnr)
+	var containerID *cid.ID
+	if *createContainer {
 
-	//cnrResponse, err := containerOwnerClient.ContainerPut(ctx, prmContainerPut)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//containerID := cnrResponse.ID()
-	//
-	//await30Seconds(func() bool {
-	//	var prmContainerGet client.PrmContainerGet
-	//	prmContainerGet.SetContainer(*containerID)
-	//	_, err = containerOwnerClient.ContainerGet(ctx, prmContainerGet)
-	//	return err == nil
-	//})
-	//
-	//fmt.Println("container ID", containerID.String())
-	//// Step 2: set restrictive extended ACL
-	containerID := cid.ID{}
-	containerID.Parse("FiAGxgha5YHVpKfQS26ssTdtvx7CL5YyaxJLseXSimvC")
-	table := eacl2.PutAllowDenyOthersEACL(containerID, nil)//objectPutDenyOthersEACL(containerID, nil)
-	//var prmContainerSetEACL client.PrmContainerSetEACL
-	//prmContainerSetEACL.SetTable(table)
-	//
-	//_, err = containerOwnerClient.ContainerSetEACL(ctx, prmContainerSetEACL)
-	//if err != nil {
-	//	panic("eacl was not set")
-	//}
-	//
-	//await30Seconds(func() bool {
-	//	var prmContainerEACL client.PrmContainerEACL
-	//	prmContainerEACL.SetContainer(*containerID)
-	//	r, err := containerOwnerClient.ContainerEACL(ctx, prmContainerEACL)
-	//	if err != nil {
-	//		return false
-	//	}
-	//	expected, _ := table.Marshal()
-	//	got, _ := r.Table().Marshal()
-	//	return bytes.Equal(expected, got)
-	//})
+		// Step 1: create container
+		containerPolicy, _ := policy.Parse("REP 2")
+		cnr := container.New(
+			container.WithPolicy(containerPolicy),
+			container.WithOwnerID(containerOwnerID),
+			container.WithCustomBasicACL(0x0FFFCFFF),
+		)
 
+		var prmContainerPut client.PrmContainerPut
+		prmContainerPut.SetContainer(*cnr)
+
+		cnrResponse, err := containerOwnerClient.ContainerPut(ctx, prmContainerPut)
+		if err != nil {
+			log.Fatalln("could not put container", err)
+		}
+		containerID = cnrResponse.ID()
+		fmt.Println("creating container", containerID.String())
+		await30Seconds(func() bool {
+			var prmContainerGet client.PrmContainerGet
+			prmContainerGet.SetContainer(*containerID)
+			_, err = containerOwnerClient.ContainerGet(ctx, prmContainerGet)
+			return err == nil
+		})
+
+		// Step 2: set restrictive extended ACL
+		table := objectPutDenyOthersEACL(containerID, nil)
+		var prmContainerSetEACL client.PrmContainerSetEACL
+		prmContainerSetEACL.SetTable(table)
+
+		_, err = containerOwnerClient.ContainerSetEACL(ctx, prmContainerSetEACL)
+		if err != nil {
+			log.Fatalln("could not set eacl", err)
+		}
+
+		await30Seconds(func() bool {
+			var prmContainerEACL client.PrmContainerEACL
+			prmContainerEACL.SetContainer(*containerID)
+			r, err := containerOwnerClient.ContainerEACL(ctx, prmContainerEACL)
+			if err != nil {
+				return false
+			}
+			expected, _ := table.Marshal()
+			got, _ := r.Table().Marshal()
+			return bytes.Equal(expected, got)
+		})
+	} else {
+		err := containerID.Parse("CodrJN9A4RpMEDKFZVSjavsYwKxwgCdBALFc1NXw3ZQg")
+		if err != nil {
+			log.Fatal("could not parse container ID", err)
+		}
+	}
 	// Step 3. Prepare bearer token to allow PUT request
-	table = objectPutDenyOthersEACL(&containerID, requestSenderKey.PublicKey())
+	table := objectPutDenyOthersEACL(containerID, requestSenderKey.PublicKey())
 
 	bearer := token.NewBearerToken()
-	bearer.SetLifetime(getHelperTokenExpiry(ctx, containerOwnerClient), 0, 0)
+	bearer.SetLifetime(GetHelperTokenExpiry(ctx, requestSenderClient), 0, 0)
 	bearer.SetEACLTable(&table)
 	bearer.SetOwner(requestOwner)
 
@@ -180,17 +177,13 @@ func main() {
 	// Otherwise signer should sign stable marshalled binary message
 	v2Bearer := bearer.ToV2()
 	binaryData, _ := v2Bearer.GetBody().StableMarshal(nil)
-	fmt.Printf("%+v\r\n", binaryData)
 	h := sha512.Sum512(binaryData)
-	r, s, err := ecdsa.Sign(rand.Reader, &containerOwnerPrivateKey.PrivateKey, h[:])
+	x, y, err := ecdsa.Sign(rand.Reader, containerOwnerKey, h[:])
 	if err != nil {
-		log.Fatal("error signing", err)
+		log.Fatalln("could not sign bearer", err)
 	}
-	signatureData := elliptic.Marshal(elliptic.P256(), r, s)
-	fmt.Println("r-Val", r.String())
-	fmt.Println("s-Val", s.String())
-	fmt.Println("signature", string(signatureData))
-	containerOwnerPublicKeyBytes := containerOwnerPrivateKey.PublicKey().Bytes()
+	signatureData := elliptic.Marshal(elliptic.P256(), x, y)
+	containerOwnerPublicKeyBytes := ownerWallet.PrivateKey().PublicKey().Bytes()
 
 	// Step 5. Receive signature and public key, set it to bearer token
 	// Set signature of the bearer token by parsing it toV2 and back to the
@@ -201,28 +194,23 @@ func main() {
 
 	v2Bearer.SetSignature(v2signature)
 	bearer = token.NewBearerTokenFromV2(v2Bearer)
-	newBearer := token.NewBearerTokenFromV2(v2Bearer)
-	err = newBearer.VerifySignature()
-	if err != nil {
-		fmt.Println("error verifying signature", err)
-		return
-	}
+
 	// Step 5. Upload object with new bearer token
-	//o := object.New()
-	//o.SetContainerID(containerID)
-	//o.SetOwnerID(containerOwner)
-	//
-	//stoken := objectSessionToken(ctx, requestSenderClient, requestOwner, containerID, &requestSenderKey.PrivateKey)
-	//
-	//objWriter, err := requestSenderClient.ObjectPutInit(ctx, client.PrmObjectPutInit{})
-	//objWriter.WithinSession(*stoken)
-	//objWriter.WithBearerToken(*bearer)
-	//objWriter.WriteHeader(*o)
-	//objWriter.WritePayloadChunk([]byte("Hello World"))
-	//_, err = objWriter.Close()
-	//if err != nil {
-	//	panic(err)
-	//}
+	o := object.New()
+	o.SetContainerID(containerID)
+	o.SetOwnerID(containerOwnerID)
+
+	stoken := objectSessionToken(ctx, requestSenderClient, requestOwner, containerID, &requestSenderKey.PrivateKey)
+
+	objWriter, err := requestSenderClient.ObjectPutInit(ctx, client.PrmObjectPutInit{})
+	objWriter.WithinSession(*stoken)
+	objWriter.WithBearerToken(*bearer)
+	objWriter.WriteHeader(*o)
+	objWriter.WritePayloadChunk([]byte("Hello World"))
+	_, err = objWriter.Close()
+	if err != nil {
+		log.Fatalln("could not put object", err)
+	}
 }
 
 func objectPutDenyOthersEACL(containerID *cid.ID, allowedPubKey *keys.PublicKey) eacl.Table {
@@ -233,12 +221,12 @@ func objectPutDenyOthersEACL(containerID *cid.ID, allowedPubKey *keys.PublicKey)
 		target := eacl.NewTarget()
 		target.SetBinaryKeys([][]byte{allowedPubKey.Bytes()})
 
-		allowPutRecord := eacl.NewRecord()
-		allowPutRecord.SetOperation(eacl.OperationPut)
-		allowPutRecord.SetAction(eacl.ActionAllow)
-		allowPutRecord.SetTargets(target)
+		denyPutRecord := eacl.NewRecord()
+		denyPutRecord.SetOperation(eacl.OperationPut)
+		denyPutRecord.SetAction(eacl.ActionAllow)
+		denyPutRecord.SetTargets(target)
 
-		table.AddRecord(allowPutRecord)
+		table.AddRecord(denyPutRecord)
 	}
 
 	target := eacl.NewTarget()
@@ -254,15 +242,6 @@ func objectPutDenyOthersEACL(containerID *cid.ID, allowedPubKey *keys.PublicKey)
 	return *table
 }
 
-func getHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
-	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
-	if err != nil {
-		log.Fatal("error getting expiry")
-	}
-
-	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)
-	return expire
-}
 func await30Seconds(f func() bool) {
 	for i := 1; i <= 30; i++ {
 		if f() {
@@ -271,17 +250,16 @@ func await30Seconds(f func() bool) {
 
 		time.Sleep(time.Second)
 	}
-	log.Fatal("timeout")
+	log.Fatalln("await timeout")
 }
 
 func objectSessionToken(ctx context.Context, cli *client.Client, owner *owner.ID, containerID *cid.ID, key *ecdsa.PrivateKey) *session.Token {
-	expiry := getHelperTokenExpiry(ctx, cli)
 	var prmSessionCreate client.PrmSessionCreate
-	prmSessionCreate.SetExp(expiry)
+	prmSessionCreate.SetExp(GetHelperTokenExpiry(ctx, cli))
 
 	res, err := cli.SessionCreate(ctx, prmSessionCreate)
 	if err != nil {
-		log.Fatal("error creating session", err)
+		log.Fatalln("could not create session", err)
 	}
 
 	addr := address.NewAddress()
@@ -294,13 +272,13 @@ func objectSessionToken(ctx context.Context, cli *client.Client, owner *owner.ID
 	stoken := session.NewToken()
 	stoken.SetSessionKey(res.PublicKey())
 	stoken.SetID(res.ID())
-	stoken.SetExp(expiry)
+	stoken.SetExp(GetHelperTokenExpiry(ctx, cli))
 	stoken.SetOwnerID(owner)
 	stoken.SetContext(objectCtx)
 
 	err = stoken.Sign(key)
 	if err != nil {
-		log.Fatal("error signing", err)
+		log.Fatalln("could not sign token", err)
 	}
 
 	return stoken

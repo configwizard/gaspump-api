@@ -1,30 +1,39 @@
 package main
 
 import (
+	"bytes"
+	//"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
+	//"github.com/cheggaaa/pb"
 	client2 "github.com/configwizard/gaspump-api/pkg/client"
 	eacl2 "github.com/configwizard/gaspump-api/pkg/eacl"
 	"github.com/configwizard/gaspump-api/pkg/object"
 	"github.com/configwizard/gaspump-api/pkg/wallet"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	object2 "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	//"github.com/cheggaaa/pb"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
+	//"sync"
+	"time"
 )
 
 const usage = `Example
 
-$ ./uploadObjects -wallets ../sample_wallets/wallet.json.go
+$ ./uploadObjects -wallets ../sample_wallets/wallet.json
 password is password
 `
 
@@ -45,7 +54,9 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
-
+	if *containerID == "" {
+		log.Fatal("need a container")
+	}
 	if *createWallet {
 		secureWallet, err := wallet.GenerateNewSecureWallet(*walletPath, "some account label", *password)
 		if err != nil {
@@ -57,9 +68,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	if *containerID == "" {
-		log.Fatal("need a container")
-	}
 	// First obtain client credentials: private key of request owner
 	key, err := wallet.GetCredentialsFromPath(*walletPath, *walletAddr, *password)
 	if err != nil {
@@ -85,7 +93,7 @@ func main() {
 	//pointers so we can have nil tokens
 	var sessionToken = &session.Token{}
 	var bearerToken = &token.BearerToken{}
-	log.Println("using container", containerID)
+	log.Println("uploading to container", containerID)
 	if *useBearerToken {
 		log.Println("using bearer token...")
 		sessionToken = nil
@@ -95,12 +103,9 @@ func main() {
 		specifiedTargetRole := eacl.NewTarget()
 		eacl.SetTargetECDSAKeys(specifiedTargetRole, &key.PublicKey)
 
-		eaclTable, err := eacl2.AllowKeyPutRead(cntId, specifiedTargetRole)
-		if err != nil {
-			log.Fatal("cant create eacl table:", err)
-		}
-		//(tokenReceiver *owner.ID, expire uint64, eaclTable *eacl.Table, containerOwnerKey *ecdsa.PrivateKey) (*token.BearerToken, error){
-		bearerToken, err = client2.NewBearerToken(ownerID, getHelperTokenExpiry(ctx, cli), eaclTable, true, key)
+		table := eacl2.PutAllowDenyOthersEACL(cntId, (*keys.PublicKey)(&key.PublicKey))
+		//bearerToken, err = client2.ExampleBearerToken(30, cntId, ownerID, info.CurrentEpoch(), specifiedTargetRole, eaclTable, key)
+		bearerToken, err = client2.NewBearerToken(ownerID, getHelperTokenExpiry(ctx, cli), table, true, key)
 
 		marshalBearerToken, err := client2.MarshalBearerToken(*bearerToken)
 		if err != nil {
@@ -113,30 +118,49 @@ func main() {
 	} else {
 		log.Println("using session token...")
 		bearerToken = nil
-		sessionToken, err = client2.CreateSession(ctx, cli, getHelperTokenExpiry(ctx, cli), key)
+		sessionToken, err = client2.CreateSession(ctx, cli, client2.GetHelperTokenExpiry(ctx, cli, 10), key)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-
+	jsonString := []byte(`{"species": "pigeon","description": "likes to perch on rocks"}`)
+	var attributes []*object2.Attribute
+	objectID, err := uploadObject(ctx, cli, ownerID, cntId, jsonString, attributes, bearerToken, sessionToken)
+	if err != nil {
+		log.Fatal("upload failed ", err)
+	}
 	filter := object2.SearchFilters{}
 	filter.AddRootFilter()
-	fmt.Printf("bearer %+v \r\n session %+v\r\n", bearerToken, sessionToken)
-	objectIDs, err := object.QueryObjects(ctx, cli, cntId, filter, bearerToken, sessionToken)
+	fmt.Printf("Object %s has been persisted in container %s\nview it at https://http.testnet.fs.neo.org/%s/%s\r\n", objectID, *containerID, *containerID, objectID)
+	_, err = object.QueryObjects(ctx, cli, cntId, filter, bearerToken, sessionToken)
 	if err != nil {
 		log.Fatal("listing failed ", err)
 	}
-	for _, v := range objectIDs {
-		fmt.Printf("list objects %s\n", v.String())
-	}
 }
-
 func getHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
 	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {
-		return 0
+		log.Fatal("error retrieving network info", err)
 	}
 
 	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)
 	return expire
+}
+func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, containerID cid.ID, jsonString []byte, attributes []*object2.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token) (string, error) {
+
+	reader := bytes.NewReader(jsonString)
+
+	RR := (io.Reader)(reader)
+	//set your attributes%%%%
+	timeStampAttr := new(object2.Attribute)
+	timeStampAttr.SetKey(object2.AttributeTimestamp)
+	timeStampAttr.SetValue(strconv.FormatInt(time.Now().Unix(), 10))
+
+	fileNameAttr := new(object2.Attribute)
+	fileNameAttr.SetKey(object2.AttributeFileName)
+	fileNameAttr.SetValue("pigeons.json")
+	attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
+
+	id, err := object.UploadObject(ctx, cli, "application/json", containerID, ownerID, attributes, bearerToken, sessionToken, &RR)
+	return id.String(), err
 }

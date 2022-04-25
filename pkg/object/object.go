@@ -3,6 +3,7 @@ package object
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -11,7 +12,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"io"
+	"io/ioutil"
 	"strconv"
+	"strings"
 )
 //
 //func GetObjectAddress(objectID *oid.ID, containerID *cid.ID) *oid.Address {
@@ -52,7 +55,7 @@ func ExpireObjectByEpochAttribute(epoch int) *object.Attribute {
 // UploadObject uploads from an io.Reader.
 // Todo: pipe for progress https://stackoverflow.com/a/56505353/1414721
 // https://github.com/fyrchik/neofs-node/blob/089f8912d277edb14b04f1d96274b792a22ed060/cmd/neofs-cli/modules/object.go#L305
-func UploadObject(ctx context.Context, cli *client.Client, containerID cid.ID, ownerID *owner.ID, attr []*object.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token, reader *io.Reader) (oid.ID, error) {
+func UploadObject(ctx context.Context, cli *client.Client, uploadType string, containerID cid.ID, ownerID *owner.ID, attr []*object.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token, reader *io.Reader) (oid.ID, error) {
 	var objectID oid.ID
 	o := object.New()
 	o.SetContainerID(&containerID)
@@ -69,15 +72,28 @@ func UploadObject(ctx context.Context, cli *client.Client, containerID cid.ID, o
 	if !objWriter.WriteHeader(*o) {
 		return objectID, errors.New("could not write object header")
 	}
-	buf := make([]byte, 1024*1024) // 1 MiB
-	for {
-		// update progress bar
-		_, err := (*reader).Read(buf)
-		if !objWriter.WritePayloadChunk(buf) {
-			break
+	var buf []byte
+	if strings.Contains(uploadType, "application/json") {
+		fmt.Println("processing json.go")
+		buf, err = ioutil.ReadAll(*reader)
+		if err != nil {
+			return objectID, err
 		}
-		if errors.Is(err, io.EOF) {
-			break
+		if !objWriter.WritePayloadChunk(buf) {
+			return objectID, errors.New("couldn't write json.go payload chunk")
+		}
+		fmt.Println("received ", string(buf))
+	} else {
+		buf = make([]byte, 1024) // 1 MiB
+		for {
+			// update progress bar
+			_, err := (*reader).Read(buf)
+			if !objWriter.WritePayloadChunk(buf) {
+				break
+			}
+			if errors.Is(err, io.EOF) {
+				break
+			}
 		}
 	}
 	res, err := objWriter.Close()
@@ -173,7 +189,7 @@ func QueryObjects(ctx context.Context, cli *client.Client, containerID cid.ID, f
 
 	err = searchInit.Iterate(func(id oid.ID) bool {
 		list = append(list, id)
-		return true
+		return false
 	})
 	return list, err
 }

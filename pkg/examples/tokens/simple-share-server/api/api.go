@@ -37,7 +37,7 @@ import (
 
 const usage = `Example
 
-$ ./uploadObjects -wallets ../sample_wallets/wallet.json
+$ ./uploadObjects -wallets ../sample_wallets/wallet.json.go
 password is password
 `
 
@@ -182,7 +182,7 @@ func main() {
 	}
 	flag.Parse()
 
-	os.Setenv("PRIVATE_KEY", "1daa689d543606a7c033b7d9cd9ca793189935294f5920ef0a39b3ad0d00f190")
+	//os.Setenv("PRIVATE_KEY", "")
 	// First obtain client credentials: private key of request owner
 	apiPrivateKey, err := keys.NewPrivateKeyFromHex(os.Getenv("PRIVATE_KEY"))
 	if err != nil {

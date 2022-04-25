@@ -8,6 +8,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	obj "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/acl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
@@ -15,12 +17,14 @@ import (
 )
 
 type Element struct {
-	ID string `json:"id"`
-	Type string `json:"type"`
-	Size uint64 `json:"size"`
-	Attributes map[string]string `json:"attributes""`
-	Errors []error `json:"errors",omitempty`
-	Children []Element `json:"children",omitempty`
+	ID string `json.go:"id"`
+	Type string `json.go:"type"`
+	Size uint64 `json.go:"size"`
+	BasicAcl acl.BasicACL
+	ExtendedAcl eacl.Table
+	Attributes map[string]string `json.go:"attributes""`
+	Errors []error `json.go:"errors",omitempty`
+	Children []Element `json.go:"children",omitempty`
 }
 
 // PopulateContainerList returns a container with its attributes as an Element (used by GenerateFileSystemFromContainer)
@@ -31,7 +35,7 @@ func PopulateContainerList(ctx context.Context, cli *client.Client, containerID 
 		Attributes: make(map[string]string),
 	}
 	c, err := container.Get(ctx, cli, containerID)
-	c.PlacementPolicy()
+	cont.BasicAcl = acl.BasicACL(c.BasicACL())
 	if err != nil {
 		cont.Errors = append(cont.Errors, err)
 		return cont

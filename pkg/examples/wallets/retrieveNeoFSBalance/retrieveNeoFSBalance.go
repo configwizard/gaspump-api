@@ -15,7 +15,7 @@ import (
 
 const usage = `Example
 
-$ ./retrieveNeoFSBalance -wallets ./sample_wallets/wallet.json
+$ ./retrieveNeoFSBalance -wallets ./sample_wallets/wallet.json.go
 password is password
 `
 

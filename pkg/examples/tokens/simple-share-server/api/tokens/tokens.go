@@ -15,8 +15,8 @@ import (
 	"time"
 )
 type Bearer struct {
-	CreatedAt time.Time `json:"created_at"`
-	Token string `json:"token"`
+	CreatedAt time.Time `json.go:"created_at"`
+	Token string `json.go:"token"`
 }
 func UnsignedBearerToken(cli *client.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -18,7 +18,7 @@ import (
 
 const usage = `Example
 
-$ ./balance -wallets ./sample_wallets/wallet.json
+$ ./balance -wallets ./sample_wallets/wallet.json.go
 password is password
 `
 

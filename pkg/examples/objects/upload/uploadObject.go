@@ -37,7 +37,7 @@ import (
 
 const usage = `Example
 
-$ ./uploadObjects -wallets ../sample_wallets/wallet.json
+$ ./uploadObjects -wallets ../sample_wallets/wallet.json.go
 password is password
 `
 
@@ -166,15 +166,6 @@ func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, co
 		return "", errors.New("could not retrieve stats" + err.Error())
 	}
 
-	//var p *pb.ProgressBar
-	//p = pb.New64(fileStats.Size())
-	//p.Output = os.Stdout//cmd.OutOrStdout()
-	//p.Start()
-
-	//read in the data here. Note large files will hang and have to be held in memory (consider a spinner/io.Pipe)
-	//reader := bufio.NewReader(f)
-	//var ioReader io.Reader
-	//ioReader = reader
 	c := progress.NewReader(f)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -196,7 +187,7 @@ func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, co
 	fileNameAttr.SetValue(path.Base(filepath))
 	attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
 
-	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attributes, bearerToken, sessionToken, &RR)
+	id, err := object.UploadObject(ctx, cli, "multipart/form-data", containerID, ownerID, attributes, bearerToken, sessionToken, &RR)
 	wg.Wait()
 	return id.String(), err
 }

@@ -11,4 +11,4 @@ const hello = async function() {
     console.log(val)
 }
 hello()
-// console.log("balance = ", awesome.RetrieveNeoFSBalance("../../pkg/examples/sample_wallets/wallet.json", "password"));
+// console.log("balance = ", awesome.RetrieveNeoFSBalance("../../pkg/examples/sample_wallets/wallet.json.go", "password"));
