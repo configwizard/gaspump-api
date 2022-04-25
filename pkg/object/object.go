@@ -64,23 +64,27 @@ func UploadObject(ctx context.Context, cli *client.Client, uploadType string, co
 
 	objWriter, err := cli.ObjectPutInit(ctx, client.PrmObjectPutInit{})
 	if sessionToken != nil {
+		fmt.Println("using session token")
 		objWriter.WithinSession(*sessionToken)
 	}
 	if bearerToken != nil {
+		fmt.Println("using bearer token")
 		objWriter.WithBearerToken(*bearerToken)
 	}
 	if !objWriter.WriteHeader(*o) {
+		fmt.Println("error writing object header")
 		return objectID, errors.New("could not write object header")
 	}
 	var buf []byte
 	if strings.Contains(uploadType, "application/json") {
-		fmt.Println("processing json.go")
+		fmt.Println("processing json")
 		buf, err = ioutil.ReadAll(*reader)
 		if err != nil {
+			fmt.Println("couldn't read into buffer", err)
 			return objectID, err
 		}
 		if !objWriter.WritePayloadChunk(buf) {
-			return objectID, errors.New("couldn't write json.go payload chunk")
+			return objectID, errors.New("couldn't write json payload chunk")
 		}
 		fmt.Println("received ", string(buf))
 	} else {
@@ -98,6 +102,7 @@ func UploadObject(ctx context.Context, cli *client.Client, uploadType string, co
 	}
 	res, err := objWriter.Close()
 	if err != nil {
+		fmt.Println("couldn't close object", err)
 		return objectID, err
 	}
 	res.ReadStoredObjectID(&objectID)
