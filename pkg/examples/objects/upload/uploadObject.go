@@ -107,12 +107,7 @@ func main() {
 		specifiedTargetRole := eacl.NewTarget()
 		eacl.SetTargetECDSAKeys(specifiedTargetRole, &key.PublicKey)
 
-		//info, err := client2.GetNetworkInfo(ctx, cli)
-		//if err != nil {
-		//	log.Fatal("can't get network info:", err)
-		//}
 		table := eacl2.PutAllowDenyOthersEACL(cntId, (*keys.PublicKey)(&key.PublicKey))
-		//bearerToken, err = client2.ExampleBearerToken(30, cntId, ownerID, info.CurrentEpoch(), specifiedTargetRole, eaclTable, key)
 		bearerToken, err = client2.NewBearerToken(ownerID, getHelperTokenExpiry(ctx, cli), table, true, key)
 
 		marshalBearerToken, err := client2.MarshalBearerToken(*bearerToken)
@@ -187,7 +182,7 @@ func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, co
 	fileNameAttr.SetValue(path.Base(filepath))
 	attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
 
-	id, err := object.UploadObject(ctx, cli, "multipart/form-data", containerID, ownerID, attributes, bearerToken, sessionToken, &RR)
+	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attributes, bearerToken, sessionToken, &RR)
 	wg.Wait()
 	return id.String(), err
 }

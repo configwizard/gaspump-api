@@ -76,6 +76,9 @@ func UploadObject(ctx context.Context, cli *client.Client, uploadType string, co
 		return objectID, errors.New("could not write object header")
 	}
 	var buf []byte
+
+	//better here to handle this based on bigger/smaller than 1024 bytes. no need to loader if smaller.
+	//so instead of passing in upload type, pass in file size
 	if strings.Contains(uploadType, "application/json") {
 		fmt.Println("processing json")
 		buf, err = ioutil.ReadAll(*reader)
@@ -155,18 +158,20 @@ func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, contain
 		_, err = objReader.Close()
 		return dstObject, err
 	}
-	buf := make([]byte, 1024*1024) // 1 MiB
+	buf := make([]byte, 1024) // 1 MiB
 	for {
 		_, err := objReader.Read(buf)
 
 		// get total size from object header and update progress bar based on n bytes received
 		if errors.Is(err, io.EOF) {
+			fmt.Println("end of file")
 			break
 		}
 		if _, writerErr := (*writer).Write(buf); writerErr != nil {
 			return nil, errors.New("error writing to buffer: " + writerErr.Error())
 		}
 	}
+	fmt.Println("finished getting")
 	return dstObject, err //return pointer to avoid passing around large payloads?
 }
 
