@@ -17,14 +17,14 @@ import (
 )
 
 type Element struct {
-	ID string `json.go:"id"`
-	Type string `json.go:"type"`
-	Size uint64 `json.go:"size"`
+	ID string `rawContent.go:"id"`
+	Type string `rawContent.go:"type"`
+	Size uint64 `rawContent.go:"size"`
 	BasicAcl acl.BasicACL
 	ExtendedAcl eacl.Table
-	Attributes map[string]string `json.go:"attributes""`
-	Errors []error `json.go:"errors",omitempty`
-	Children []Element `json.go:"children",omitempty`
+	Attributes map[string]string `rawContent.go:"attributes""`
+	Errors []error `rawContent.go:"errors",omitempty`
+	Children []Element `rawContent.go:"children",omitempty`
 }
 
 // PopulateContainerList returns a container with its attributes as an Element (used by GenerateFileSystemFromContainer)

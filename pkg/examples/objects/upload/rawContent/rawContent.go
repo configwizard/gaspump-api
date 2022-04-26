@@ -33,7 +33,7 @@ import (
 
 const usage = `Example
 
-$ ./uploadObjects -wallets ../sample_wallets/wallet.json
+$ ./uploadObjects -wallets ../sample_wallets/wallet.rawContent
 password is password
 `
 
@@ -47,6 +47,7 @@ var (
 )
 
 func main() {
+	fmt.Println(os.Getwd())
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr, usage)
 		flag.PrintDefaults()
@@ -123,9 +124,13 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	jsonString := []byte(`{"species": "pigeon","description": "likes to perch on rocks"}`)
+	rawContent := []byte(`{"species": "pigeon","description": "likes to perch on rocks"}`)
+	fileNameAttr := new(object2.Attribute)
+	fileNameAttr.SetKey(object2.AttributeFileName)
+	fileNameAttr.SetValue("pigeons.json")
 	var attributes []*object2.Attribute
-	objectID, err := uploadObject(ctx, cli, ownerID, cntId, jsonString, attributes, bearerToken, sessionToken)
+	attributes = append(attributes, fileNameAttr)
+	objectID, err := uploadObject(ctx, cli, ownerID, rawContent, cntId, attributes, bearerToken, sessionToken)
 	if err != nil {
 		log.Fatal("upload failed ", err)
 	}
@@ -146,9 +151,9 @@ func getHelperTokenExpiry(ctx context.Context, cli *client.Client) uint64 {
 	expire := ni.Info().CurrentEpoch() + 10 // valid for 10 epochs (~ 10 hours)
 	return expire
 }
-func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, containerID cid.ID, jsonString []byte, attributes []*object2.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token) (string, error) {
+func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, rawContent []byte, containerID cid.ID, attributes []*object2.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token) (string, error) {
 
-	reader := bytes.NewReader(jsonString)
+	reader := bytes.NewReader(rawContent)
 
 	RR := (io.Reader)(reader)
 	//set your attributes%%%%
@@ -156,11 +161,8 @@ func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, co
 	timeStampAttr.SetKey(object2.AttributeTimestamp)
 	timeStampAttr.SetValue(strconv.FormatInt(time.Now().Unix(), 10))
 
-	fileNameAttr := new(object2.Attribute)
-	fileNameAttr.SetKey(object2.AttributeFileName)
-	fileNameAttr.SetValue("pigeons.json")
-	attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
+	attributes = append(attributes, timeStampAttr)
 
-	id, err := object.UploadObject(ctx, cli, "application/json", containerID, ownerID, attributes, bearerToken, sessionToken, &RR)
+	id, err := object.UploadObject(ctx, cli, len(rawContent), containerID, ownerID, attributes, bearerToken, sessionToken, &RR)
 	return id.String(), err
 }

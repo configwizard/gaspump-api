@@ -14,7 +14,6 @@ import (
 	"io"
 	"io/ioutil"
 	"strconv"
-	"strings"
 )
 //
 //func GetObjectAddress(objectID *oid.ID, containerID *cid.ID) *oid.Address {
@@ -55,7 +54,7 @@ func ExpireObjectByEpochAttribute(epoch int) *object.Attribute {
 // UploadObject uploads from an io.Reader.
 // Todo: pipe for progress https://stackoverflow.com/a/56505353/1414721
 // https://github.com/fyrchik/neofs-node/blob/089f8912d277edb14b04f1d96274b792a22ed060/cmd/neofs-cli/modules/object.go#L305
-func UploadObject(ctx context.Context, cli *client.Client, uploadType string, containerID cid.ID, ownerID *owner.ID, attr []*object.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token, reader *io.Reader) (oid.ID, error) {
+func UploadObject(ctx context.Context, cli *client.Client, uploadSize int, containerID cid.ID, ownerID *owner.ID, attr []*object.Attribute, bearerToken *token.BearerToken, sessionToken *session.Token, reader *io.Reader) (oid.ID, error) {
 	var objectID oid.ID
 	o := object.New()
 	o.SetContainerID(&containerID)
@@ -79,15 +78,15 @@ func UploadObject(ctx context.Context, cli *client.Client, uploadType string, co
 
 	//better here to handle this based on bigger/smaller than 1024 bytes. no need to loader if smaller.
 	//so instead of passing in upload type, pass in file size
-	if strings.Contains(uploadType, "application/json") {
-		fmt.Println("processing json")
+	if uploadSize < 1024 {
+		fmt.Println("processing small content")
 		buf, err = ioutil.ReadAll(*reader)
 		if err != nil {
 			fmt.Println("couldn't read into buffer", err)
 			return objectID, err
 		}
 		if !objWriter.WritePayloadChunk(buf) {
-			return objectID, errors.New("couldn't write json payload chunk")
+			return objectID, errors.New("couldn't write rawContent payload chunk")
 		}
 		fmt.Println("received ", string(buf))
 	} else {
@@ -136,7 +135,7 @@ func GetObjectMetaData(ctx context.Context, cli *client.Client, objectID oid.ID,
 // GetObject does pecisely that. Returns bytes
 // Todo: https://stackoverflow.com/a/56505353/1414721
 // for progress bar
-func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, containerID cid.ID, bearerToken *token.BearerToken, sessionToken *session.Token, writer *io.Writer) (*object.Object, error){
+func GetObject(ctx context.Context, cli *client.Client, payloadSize int, objectID oid.ID, containerID cid.ID, bearerToken *token.BearerToken, sessionToken *session.Token, writer *io.Writer) (*object.Object, error){
 	if writer == nil {
 		return nil, errors.New("no writer provided")
 	}
@@ -158,17 +157,30 @@ func GetObject(ctx context.Context, cli *client.Client, objectID oid.ID, contain
 		_, err = objReader.Close()
 		return dstObject, err
 	}
-	buf := make([]byte, 1024) // 1 MiB
-	for {
+	var buf []byte
+	if payloadSize < 1024 {
+		buf = make([]byte, payloadSize)
 		_, err := objReader.Read(buf)
-
-		// get total size from object header and update progress bar based on n bytes received
-		if errors.Is(err, io.EOF) {
-			fmt.Println("end of file")
-			break
+		if err != nil {
+			fmt.Println("couldn't read into buffer", err)
+			return dstObject, err
 		}
 		if _, writerErr := (*writer).Write(buf); writerErr != nil {
 			return nil, errors.New("error writing to buffer: " + writerErr.Error())
+		}
+	} else {
+		buf = make([]byte, 1024)
+		for {
+			_, err := objReader.Read(buf)
+
+			// get total size from object header and update progress bar based on n bytes received
+			if errors.Is(err, io.EOF) {
+				fmt.Println("end of file")
+				break
+			}
+			if _, writerErr := (*writer).Write(buf); writerErr != nil {
+				return nil, errors.New("error writing to buffer: " + writerErr.Error())
+			}
 		}
 	}
 	fmt.Println("finished getting")

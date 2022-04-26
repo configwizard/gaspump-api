@@ -88,11 +88,11 @@ func UnlockWallet(path, address, password string) (*wallet.Account, error) {
 	return acc, nil
 }
 type Nep17Tokens struct {
-	Asset util.Uint160 `json.go:"asset"`
-	Amount uint64 `json.go:"amount""`
-	Symbol string `json.go:"symbol"`
-	Info wallet.Token `json.go:"meta"`
-	Error error `json.go:"error"`
+	Asset util.Uint160 `rawContent.go:"asset"`
+	Amount uint64 `rawContent.go:"amount""`
+	Symbol string `rawContent.go:"symbol"`
+	Info wallet.Token `rawContent.go:"meta"`
+	Error error `rawContent.go:"error"`
 }
 func GetNep17Balances(walletAddress string, network RPC_NETWORK) (map[string]Nep17Tokens, error) {
 	ctx := context.Background()

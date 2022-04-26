@@ -30,7 +30,7 @@ import (
 )
 const usage = `Example
 
-$ ./permissioned-tokens -wallets ../sample_wallets/wallet.json.go
+$ ./permissioned-tokens -wallets ../sample_wallets/wallet.rawContent.go
 password is password
 `
 

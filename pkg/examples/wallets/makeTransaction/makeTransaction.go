@@ -19,12 +19,12 @@ import (
 
 const usage = `Example
 
-$ ./balance -wallets ./sample_wallets/wallet.json.go
+$ ./balance -wallets ./sample_wallets/wallet.rawContent.go
 password is password
 `
 
 var (
-	walletPath = flag.String("wallets", "./pkg/examples/sample_wallets/wallet.json.go", "path to JSON wallets file")
+	walletPath = flag.String("wallets", "./pkg/examples/sample_wallets/wallet.rawContent.go", "path to JSON wallets file")
 	walletAddr = flag.String("address", "", "wallets address [optional]")
 	createWallet = flag.Bool("create", false, "create a wallets")
 	password = flag.String("password", "", "wallet password")

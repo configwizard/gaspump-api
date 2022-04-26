@@ -27,7 +27,7 @@ import (
 
 const usage = `Example
 
-$ ./signedBearerToken -wallets ./sample_wallets/wallet.json.go
+$ ./signedBearerToken -wallets ./sample_wallets/wallet.rawContent.go
 password is password
 `
 
@@ -65,7 +65,7 @@ func main() {
 	}
 
 
-	gatewayKey, err := wallet.GenerateNewWallet("/tmp/tmpwallet.json.go")
+	gatewayKey, err := wallet.GenerateNewWallet("/tmp/tmpwallet.rawContent.go")
 	if err != nil {
 		log.Fatal("can't creste gateway wallet:", err)
 	}

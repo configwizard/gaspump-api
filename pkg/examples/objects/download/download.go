@@ -29,7 +29,7 @@ import (
 
 const usage = `Example
 
-$ ./uploadObjects -wallets ../sample_wallets/wallet.json.go
+$ ./uploadObjects -wallets ../sample_wallets/wallet.rawContent.go
 password is password
 `
 
@@ -146,20 +146,24 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	c := progress.NewWriter(f)
+	var WW = (io.Writer)(f)
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		progressChan := progress.NewTicker(ctx, c, int64(head.PayloadSize()), 50*time.Millisecond)
+	if head.PayloadSize() > 1024 {
+		c := progress.NewWriter(f)
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			progressChan := progress.NewTicker(ctx, c, int64(head.PayloadSize()), 50*time.Millisecond)
+			for p := range progressChan {
+				print("time")
+				fmt.Printf("\r%v remaining...", p.Remaining().Round(250*time.Millisecond))
+			}
+		}()
+		WW = (io.Writer)(c)
+	}
 
-		for p := range progressChan {
-			print("time")
-			fmt.Printf("\r%v remaining...", p.Remaining().Round(250*time.Millisecond))
-		}
-	}()
-	WW := (io.Writer)(c)
-	res, err := object.GetObject(ctx, cli, objID, cntId, bearerToken, sessionToken, &WW)
+	res, err := object.GetObject(ctx, cli, int(head.PayloadSize()), objID, cntId, bearerToken, sessionToken, &WW)
 	if err != nil {
 		log.Fatal("listing failed ", err)
 	}

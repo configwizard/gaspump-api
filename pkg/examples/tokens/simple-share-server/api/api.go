@@ -37,7 +37,7 @@ import (
 
 const usage = `Example
 
-$ ./uploadObjects -wallets ../sample_wallets/wallet.json.go
+$ ./uploadObjects -wallets ../sample_wallets/wallet.rawContent.go
 password is password
 `
 

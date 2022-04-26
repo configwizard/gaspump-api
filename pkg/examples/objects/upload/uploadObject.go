@@ -37,7 +37,7 @@ import (
 
 const usage = `Example
 
-$ ./uploadObjects -wallets ../sample_wallets/wallet.json.go
+$ ./uploadObjects -wallets ../sample_wallets/wallet.rawContent.go
 password is password
 `
 
@@ -182,7 +182,7 @@ func uploadObject(ctx context.Context, cli *client.Client, ownerID *owner.ID, co
 	fileNameAttr.SetValue(path.Base(filepath))
 	attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
 
-	id, err := object.UploadObject(ctx, cli, containerID, ownerID, attributes, bearerToken, sessionToken, &RR)
+	id, err := object.UploadObject(ctx, cli, int(fileStats.Size()), containerID, ownerID, attributes, bearerToken, sessionToken, &RR)
 	wg.Wait()
 	return id.String(), err
 }
