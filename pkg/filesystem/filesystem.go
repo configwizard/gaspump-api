@@ -3,13 +3,14 @@ package filesystem
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"github.com/configwizard/gaspump-api/pkg/container"
 	"github.com/configwizard/gaspump-api/pkg/object"
+	"github.com/nspcc-dev/neofs-sdk-go/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	obj "github.com/nspcc-dev/neofs-sdk-go/object"
-	"github.com/nspcc-dev/neofs-sdk-go/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	obj "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
@@ -17,14 +18,16 @@ import (
 )
 
 type Element struct {
-	ID string `rawContent.go:"id"`
-	Type string `rawContent.go:"type"`
-	Size uint64 `rawContent.go:"size"`
+	ID string `json:"id"`
+	Type string `josn:"type"`
+	Size uint64 `json:"size"`
 	BasicAcl acl.BasicACL
 	ExtendedAcl eacl.Table
-	Attributes map[string]string `rawContent.go:"attributes""`
-	Errors []error `rawContent.go:"errors",omitempty`
-	Children []Element `rawContent.go:"children",omitempty`
+	Attributes map[string]string `json:"attributes""`
+	Errors []error `json:"errors",omitempty`
+	ParentID string
+	Children []Element `json:"children",omitempty`
+	PendingDeleted bool
 }
 
 // PopulateContainerList returns a container with its attributes as an Element (used by GenerateFileSystemFromContainer)
@@ -40,8 +43,12 @@ func PopulateContainerList(ctx context.Context, cli *client.Client, containerID 
 		cont.Errors = append(cont.Errors, err)
 		return cont
 	}
+	fmt.Println("processing attributes ", c.Attributes())
 	for _, a := range c.Attributes() {
 		cont.Attributes[a.Key()] = a.Value()
+	}
+	if _, ok := cont.Attributes[obj.AttributeFileName]; !ok {
+		cont.Attributes[obj.AttributeFileName] = ""
 	}
 	return cont
 }

@@ -156,7 +156,6 @@ func main() {
 			defer wg.Done()
 			progressChan := progress.NewTicker(ctx, c, int64(head.PayloadSize()), 50*time.Millisecond)
 			for p := range progressChan {
-				print("time")
 				fmt.Printf("\r%v remaining...", p.Remaining().Round(250*time.Millisecond))
 			}
 		}()

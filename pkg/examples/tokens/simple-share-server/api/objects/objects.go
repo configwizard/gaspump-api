@@ -17,6 +17,7 @@ import (
 	object2 "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"io"
 	"log"
@@ -85,7 +86,7 @@ func GetObjectHead(cli *client.Client) http.HandlerFunc {
 		content, err = object.GetObjectMetaData(ctx, cli, objID, cntID, bearer, nil)
 		if err != nil {
 			log.Println("cannot retrieve metadata", err)
-			http.Error(w, err.Error(), 502)
+			http.Error(w, err.Error(), 400)
 			return
 		}
 		response, err := content.MarshalJSON()
@@ -134,8 +135,13 @@ func GetObject(cli *client.Client) http.HandlerFunc{
 			http.Error(w, err.Error(), 400)
 			return
 		}
+		var sessionToken *session.Token // this won't work. You will need to actually create a session token
+		head, err := object.GetObjectMetaData(ctx, cli, objID, cntID, bearer, sessionToken)
+		if err != nil {
+			log.Fatal(err)
+		}
 		WW := (io.Writer)(w)
-		_, err = object.GetObject(ctx, cli, objID, cntID, bearer, nil, &WW)
+		_, err = object.GetObject(ctx, cli, int(head.PayloadSize()), objID, cntID, bearer, sessionToken, &WW)
 		if err != nil {
 			http.Error(w, err.Error(), 502)
 			return
@@ -231,7 +237,8 @@ func UploadObject(cli *client.Client) http.HandlerFunc {
 		fileNameAttr.SetValue(handler.Filename)
 		attributes = append(attributes, []*object2.Attribute{timeStampAttr, fileNameAttr}...)
 		RR := (io.Reader)(file)
-		id, err := object.UploadObject(ctx, cli, cntID, kOwner, attributes, bearer, nil, &RR)
+		//again session token will need to be a value owned by the request maker
+		id, err := object.UploadObject(ctx, cli, int(handler.Size), cntID, kOwner, attributes, bearer, nil, &RR)
 		if err != nil {
 			http.Error(w, err.Error(), 502)
 			return
