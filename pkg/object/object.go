@@ -79,7 +79,6 @@ func UploadObject(ctx context.Context, cli *client.Client, uploadSize int, conta
 	//better here to handle this based on bigger/smaller than 1024 bytes. no need to loader if smaller.
 	//so instead of passing in upload type, pass in file size
 	if uploadSize < 1024 {
-		fmt.Println("processing small content")
 		buf, err = ioutil.ReadAll(*reader)
 		if err != nil {
 			fmt.Println("couldn't read into buffer", err)
@@ -88,7 +87,6 @@ func UploadObject(ctx context.Context, cli *client.Client, uploadSize int, conta
 		if !objWriter.WritePayloadChunk(buf) {
 			return objectID, errors.New("couldn't write rawContent payload chunk")
 		}
-		fmt.Println("received ", string(buf))
 	} else {
 		buf = make([]byte, 1024) // 1 MiB
 		for {
