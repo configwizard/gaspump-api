@@ -8,6 +8,37 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
 
+
+func AllAllowDenyOthersEACL(containerID cid.ID, allowedPubKey *keys.PublicKey) eacl.Table {
+	table := eacl.NewTable()
+	table.SetCID(&containerID)
+	operations := []eacl.Operation{eacl.OperationPut, eacl.OperationGet, eacl.OperationHead, eacl.OperationRange, eacl.OperationSearch}
+	if allowedPubKey != nil {
+		target := eacl.NewTarget()
+		target.SetBinaryKeys([][]byte{allowedPubKey.Bytes()})
+		for _, v := range operations {
+			allowRecord := eacl.NewRecord()
+			allowRecord.SetOperation(v)
+			allowRecord.SetAction(eacl.ActionAllow)
+			allowRecord.SetTargets(target)
+			table.AddRecord(allowRecord)
+		}
+	}
+	operations = append(operations, eacl.OperationDelete)
+	target := eacl.NewTarget()
+	target.SetRole(eacl.RoleOthers)
+	for _, v := range operations {
+		denyRecord := eacl.NewRecord()
+		denyRecord.SetOperation(v)
+		denyRecord.SetAction(eacl.ActionDeny)
+		denyRecord.SetTargets(target)
+		table.AddRecord(denyRecord)
+	}
+
+	return *table
+}
+
+
 func PutAllowDenyOthersEACL(containerID cid.ID, allowedPubKey *keys.PublicKey) eacl.Table {
 	table := eacl.NewTable()
 	table.SetCID(&containerID)
