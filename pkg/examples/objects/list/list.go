@@ -59,6 +59,8 @@ func main() {
 
 	if *containerID == "" {
 		log.Fatal("need a container")
+	} else {
+		fmt.Println("listing content of container", *containerID)
 	}
 	// First obtain client credentials: private key of request owner
 	key, err := wallet.GetCredentialsFromPath(*walletPath, *walletAddr, *password)
@@ -113,7 +115,7 @@ func main() {
 	} else {
 		log.Println("using session token...")
 		bearerToken = nil
-		sessionToken, err = client2.CreateSession(ctx, cli, getHelperTokenExpiry(ctx, cli), key)
+		sessionToken, err = client2.CreateSessionForContainerList(ctx, cli, getHelperTokenExpiry(ctx, cli), key)
 		if err != nil {
 			log.Fatal(err)
 		}

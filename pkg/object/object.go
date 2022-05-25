@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"io"
-	"io/ioutil"
 	"strconv"
 )
 //
@@ -78,28 +77,29 @@ func UploadObject(ctx context.Context, cli *client.Client, uploadSize int, conta
 
 	//better here to handle this based on bigger/smaller than 1024 bytes. no need to loader if smaller.
 	//so instead of passing in upload type, pass in file size
-	if uploadSize < 1024 {
-		buf, err = ioutil.ReadAll(*reader)
-		if err != nil {
-			fmt.Println("couldn't read into buffer", err)
-			return objectID, err
+	//if uploadSize < 1024 {
+	//	buf, err = ioutil.ReadAll(*reader)
+	//	if err != nil {
+	//		fmt.Println("couldn't read into buffer", err)
+	//		return objectID, err
+	//	}
+	//	if !objWriter.WritePayloadChunk(buf) {
+	//		return objectID, errors.New("couldn't write rawContent payload chunk")
+	//	}
+	//} else {
+	buf = make([]byte, 1024) // 1 MiB
+	for {
+		// update progress bar
+		n, err := (*reader).Read(buf)
+		if !objWriter.WritePayloadChunk(buf[:n]) {
+			break
 		}
-		if !objWriter.WritePayloadChunk(buf) {
-			return objectID, errors.New("couldn't write rawContent payload chunk")
+		if errors.Is(err, io.EOF) {
+			break
 		}
-	} else {
-		buf = make([]byte, 1024) // 1 MiB
-		for {
-			// update progress bar
-			_, err := (*reader).Read(buf)
-			if !objWriter.WritePayloadChunk(buf) {
-				break
-			}
-			if errors.Is(err, io.EOF) {
-				break
-			}
-		}
+		fmt.Println("WROTE: ", string(buf[:n]))
 	}
+	//}
 	res, err := objWriter.Close()
 	if err != nil {
 		fmt.Println("couldn't close object", err)

@@ -41,6 +41,7 @@ $ ./uploadObjects -wallets ../sample_wallets/wallet.rawContent.go
 password is password
 `
 
+
 var (
 	walletPath = flag.String("wallets", "", "path to JSON wallets file")
 	walletAddr = flag.String("address", "", "wallets address [optional]")
@@ -56,6 +57,8 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+
+	fmt.Println(os.Getwd())
 
 	ctx := context.Background()
 	if *containerID == "" {
@@ -121,12 +124,12 @@ func main() {
 	} else {
 		log.Println("using session token...")
 		bearerToken = nil
-		sessionToken, err = client2.CreateSession(ctx, cli, client2.GetHelperTokenExpiry(ctx, cli, 10), key)
+		sessionToken, err = client2.CreateSessionWithObjectPutContext(ctx, cli, ownerID, &cntId, client2.GetHelperTokenExpiry(ctx, cli, 10), key)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-	filepath := "./upload.gif"
+	filepath := "./pkg/examples/objects/upload/htmlupload.html"
 	var attributes []*object2.Attribute
 	objectID, err := uploadObject(ctx, cli, ownerID, cntId, filepath, attributes, bearerToken, sessionToken)
 	if err != nil {
@@ -134,6 +137,10 @@ func main() {
 	}
 	filter := object2.SearchFilters{}
 	filter.AddRootFilter()
+	sessionToken, err = client2.CreateSessionForContainerList(ctx, cli, getHelperTokenExpiry(ctx, cli), key)
+	if err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("Object %s has been persisted in container %s\nview it at https://http.testnet.fs.neo.org/%s/%s\r\n", objectID, *containerID, *containerID, objectID)
 	_, err = object.QueryObjects(ctx, cli, cntId, filter, bearerToken, sessionToken)
 	if err != nil {
